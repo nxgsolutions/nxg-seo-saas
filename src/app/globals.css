@@ -1,0 +1,643 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-heading);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-strong: var(--brand-strong);
+  --color-aqua: var(--aqua);
+  --color-aqua-foreground: var(--aqua-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-auth-panel: var(--auth-panel);
+  --color-auth-panel-foreground: var(--auth-panel-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  /* Data-viz accents (theme-aware). Score line + reserved status colors. */
+  --chart-accent: oklch(0.55 0.17 255);
+  --chart-pass: oklch(0.68 0.15 155);
+  --chart-warn: oklch(0.76 0.14 75);
+  --chart-fail: oklch(0.6 0.2 25);
+  --chart-grid: oklch(0.922 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  /* Auth brand panel — intentionally dark in both themes for brand consistency. */
+  --auth-panel: oklch(0.205 0 0);
+  --auth-panel-foreground: oklch(0.985 0 0);
+  /* NXGSEO brand palette — "Signal Indigo": electric indigo + aqua data-accent. */
+  --brand: oklch(0.55 0.212 274);
+  --brand-strong: oklch(0.47 0.2 274);
+  --brand-foreground: oklch(0.99 0 0);
+  --aqua: oklch(0.8 0.13 200);
+  --aqua-foreground: oklch(0.24 0.03 240);
+  --cta-from: oklch(0.55 0.212 274);
+  --cta-to: oklch(0.66 0.16 245);
+  --hero-tint: oklch(0.6 0.2 274);
+  --heading-ink: oklch(0.2 0.03 275);
+  /* Logo mark: primary2 sky blue, deepening slightly to primary3 for depth. */
+  --grad-logo: linear-gradient(135deg, #1d90ff, #1d90ff 45%, #1a6cf0);
+  --grad-brand: linear-gradient(135deg, oklch(0.55 0.212 274), oklch(0.72 0.15 238) 55%, oklch(0.8 0.13 200));
+}
+
+/* Navy dark theme. Backgrounds carry a blue tint (hue ~260); surfaces step up
+   in lightness for elevation; a blue primary ties accents together. Every
+   shadcn component reads these tokens, so they all retheme automatically. */
+.dark {
+  --background: oklch(0.17 0.028 260);
+  --foreground: oklch(0.97 0.008 255);
+  --card: oklch(0.215 0.03 260);
+  --card-foreground: oklch(0.97 0.008 255);
+  --popover: oklch(0.225 0.03 260);
+  --popover-foreground: oklch(0.97 0.008 255);
+  /* High-contrast (white) primary buttons on navy. */
+  --primary: oklch(0.965 0.006 255);
+  --primary-foreground: oklch(0.22 0.035 260);
+  --secondary: oklch(0.27 0.032 260);
+  --secondary-foreground: oklch(0.97 0.008 255);
+  --muted: oklch(0.265 0.028 260);
+  --muted-foreground: oklch(0.72 0.03 258);
+  --accent: oklch(0.31 0.04 260);
+  --accent-foreground: oklch(0.98 0.008 255);
+  --destructive: oklch(0.7 0.19 22.216);
+  --border: oklch(0.82 0.04 258 / 14%);
+  --input: oklch(0.82 0.04 258 / 18%);
+  --ring: oklch(0.62 0.15 256);
+  --chart-1: oklch(0.7 0.14 256);
+  --chart-2: oklch(0.72 0.13 200);
+  --chart-3: oklch(0.75 0.14 155);
+  --chart-4: oklch(0.78 0.13 80);
+  --chart-5: oklch(0.7 0.16 300);
+  --chart-accent: oklch(0.72 0.15 256);
+  --chart-pass: oklch(0.72 0.15 155);
+  --chart-warn: oklch(0.8 0.13 80);
+  --chart-fail: oklch(0.7 0.19 22);
+  --chart-grid: oklch(0.82 0.04 258 / 12%);
+  --sidebar: oklch(0.185 0.03 260);
+  --sidebar-foreground: oklch(0.97 0.008 255);
+  --sidebar-primary: oklch(0.62 0.15 256);
+  --sidebar-primary-foreground: oklch(0.98 0.01 255);
+  --sidebar-accent: oklch(0.27 0.032 260);
+  --sidebar-accent-foreground: oklch(0.98 0.008 255);
+  --sidebar-border: oklch(0.82 0.04 258 / 14%);
+  --sidebar-ring: oklch(0.62 0.15 256);
+  --auth-panel: oklch(0.15 0.03 262);
+  --auth-panel-foreground: oklch(0.97 0.008 255);
+  --brand: oklch(0.68 0.19 274);
+  --brand-strong: oklch(0.6 0.2 274);
+  --brand-foreground: oklch(0.99 0 0);
+  --aqua: oklch(0.82 0.13 200);
+  --aqua-foreground: oklch(0.18 0.03 240);
+  --cta-from: oklch(0.68 0.19 274);
+  --cta-to: oklch(0.74 0.14 242);
+  --hero-tint: oklch(0.62 0.2 274);
+  --heading-ink: oklch(0.97 0.01 260);
+  --grad-brand: linear-gradient(135deg, oklch(0.68 0.19 274), oklch(0.74 0.15 238) 55%, oklch(0.82 0.13 200));
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* Actionable controls show a pointer cursor; disabled ones do not. */
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  /* Menu actions, dropdown options and tabs are clickable too. */
+  :is([role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"], [role="tab"]):not([aria-disabled="true"]):not([data-disabled]),
+  label[for],
+  summary,
+  a[href] {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Page-level headings use the display font (Plus Jakarta Sans). shadcn
+     CardTitle renders a <div>, so cards keep the body font. */
+  h1,
+  h2 {
+    font-family: var(--font-heading);
+  }
+}
+
+/* Scale the entire UI up on large monitors. Because Tailwind sizing is rem-based,
+   raising the root font-size grows fonts, spacing and controls proportionally.
+   Laptops and tablets (< 2000px) keep the default 16px. */
+@media (min-width: 2000px) {
+  html {
+    font-size: 17px;
+  }
+}
+@media (min-width: 2560px) {
+  html {
+    font-size: 18.5px;
+  }
+}
+@media (min-width: 3200px) {
+  html {
+    font-size: 20px;
+  }
+}
+
+/* Public pages share theme tokens without changing dashboard surfaces. */
+.marketing-page section[id] {
+  scroll-margin-top: 9rem;
+}
+.marketing-page a:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 4px;
+}
+/* Sign in / sign up: give the auth area the brand-blue identity (the global
+   dark theme's --primary is near-white, which made the submit button a flat
+   grey bar). Scoped to .public-auth so no dashboard/marketing surface changes. */
+.public-auth {
+  --primary: #1d90ff;
+  --primary-foreground: #ffffff;
+  --ring: #1d90ff;
+  --card: #ffffff;
+  --border: #dce7f3;
+  background-color: #f4f8fe;
+  background-image:
+    radial-gradient(60rem 30rem at 50% -12%, color-mix(in oklch, #1d90ff 20%, transparent), transparent 62%),
+    radial-gradient(46rem 28rem at 108% 112%, color-mix(in oklch, #22b8c4 12%, transparent), transparent 60%);
+}
+.dark .public-auth {
+  --primary: #4aa3ff;
+  --primary-foreground: #04182e;
+  --ring: #4aa3ff;
+  --card: #111f33;
+  --card-foreground: #e8f1fc;
+  --border: #243a5a;
+  --input: #2a4263;
+  --muted-foreground: #9fb2c9;
+  background-color: #0a1322;
+  background-image:
+    radial-gradient(62rem 32rem at 50% -14%, color-mix(in oklch, #1d90ff 30%, transparent), transparent 60%),
+    radial-gradient(50rem 30rem at 112% 116%, color-mix(in oklch, #1447e6 22%, transparent), transparent 60%);
+}
+/* Lift the auth card off the canvas with a soft, brand-tinted elevation. */
+.public-auth [data-slot="card"] {
+  box-shadow: 0 1px 2px rgb(10 50 89 / 6%), 0 24px 60px -28px rgb(10 50 89 / 28%);
+}
+.dark .public-auth [data-slot="card"] {
+  box-shadow: 0 1px 2px oklch(0 0 0 / 40%), 0 28px 70px -30px oklch(0 0 0 / 70%);
+}
+
+/* ---- Marketing design utilities ---------------------------------------- */
+@utility text-gradient {
+  background-image: var(--grad-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Faint square grid, faded toward the edges. */
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--foreground) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 7%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+@utility bg-dots {
+  background-image: radial-gradient(color-mix(in oklch, var(--foreground) 14%, transparent) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+/* Elevated surface used by marketing cards + product mockups. */
+@utility surface {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 1px 0 0 color-mix(in oklch, white 6%, transparent) inset,
+    0 1px 2px color-mix(in oklch, var(--foreground) 4%, transparent),
+    0 12px 32px -12px color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+/* Gradient hairline border (1px) via mask — for highlighted cards. */
+@utility ring-gradient {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: var(--grad-brand);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+@keyframes mk-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes mk-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes mk-draw {
+  from { stroke-dashoffset: var(--len, 1000); }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes mk-pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 45%, transparent); }
+  100% { box-shadow: 0 0 0 8px transparent; }
+}
+.mk-marquee { animation: mk-marquee 40s linear infinite; }
+.mk-marquee-wrap:hover .mk-marquee { animation-play-state: paused; }
+.mk-float { animation: mk-float 6s ease-in-out infinite; }
+.mk-float-delay { animation: mk-float 7s ease-in-out 1.2s infinite; }
+.mk-draw { stroke-dasharray: var(--len, 1000); animation: mk-draw 2.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.mk-live { animation: mk-pulse-ring 1.8s ease-out infinite; }
+
+/* Long-form legal / article prose. */
+.mk-prose h2 { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; margin-top: 2.5rem; scroll-margin-top: 7rem; }
+.mk-prose h2:first-child { margin-top: 0; }
+.mk-prose p, .mk-prose ul { margin-top: 0.75rem; color: var(--muted-foreground); line-height: 1.75; font-size: 0.9375rem; }
+.mk-prose ul { list-style: disc; padding-left: 1.25rem; }
+.mk-prose li + li { margin-top: 0.375rem; }
+.mk-prose a { color: var(--brand); text-underline-offset: 4px; }
+.mk-prose a:hover { text-decoration: underline; }
+
+/* Content editor (contentEditable) — readable headings, lists and links. */
+.prose-editor h1 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 0.5rem; letter-spacing: -0.01em; }
+.prose-editor h2 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; letter-spacing: -0.01em; }
+.prose-editor h3 { font-size: 1.05rem; font-weight: 600; margin: 1rem 0 0.375rem; }
+.prose-editor p { margin: 0.625rem 0; }
+.prose-editor ul { list-style: disc; padding-left: 1.5rem; margin: 0.625rem 0; }
+.prose-editor ol { list-style: decimal; padding-left: 1.5rem; margin: 0.625rem 0; }
+.prose-editor li + li { margin-top: 0.25rem; }
+.prose-editor a { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+.prose-editor img { max-width: 100%; height: auto; border-radius: 0.5rem; }
+.prose-editor:focus { outline: none; }
+.prose-editor:empty::before { content: "Start writing…"; color: var(--muted-foreground); }
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-page *, .public-auth * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Preserve scrolling while hiding scrollbar tracks. */
+.sidebar-scroll, .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.sidebar-scroll::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Independently scrolling panes: hidden track (ScrollMoreHint signals overflow),
+   smooth, no scroll chaining into the page. */
+.scroll-pane { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; overscroll-behavior: contain; }
+.scroll-pane::-webkit-scrollbar { display: none; }
+@media (prefers-reduced-motion: reduce) { .scroll-pane { scroll-behavior: auto; } }
+
+/* Workspace design system. Scoped so public pages keep their own identity.
+   "Brand blue": navy ink, royal-blue primary, sky-blue accents on a pale
+   blue canvas. Components read these tokens, so every dashboard page
+   restyles without per-page changes. Palette:
+     primary1 #0a3259 navy · primary2 #1d90ff sky · primary3 #1447e6 royal
+     primary4 #b9ddff light · primary5 #e8f4ff wash */
+.dashboard-shell {
+  --primary1: #0a3259;
+  --primary2: #1d90ff;
+  --primary3: #1447e6;
+  --primary4: #b9ddff;
+  --primary5: #e8f4ff;
+  --background: #f5f9fe;
+  --foreground: #0d1f36;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  /* Main brand colour = primary2 (sky blue); primary3 adds depth in gradients. */
+  --primary: var(--primary2);
+  --primary-foreground: #ffffff;
+  --secondary: var(--primary5);
+  --secondary-foreground: var(--primary1);
+  --accent: var(--primary5);
+  --accent-foreground: var(--primary2);
+  --muted: #eef4fb;
+  /* Table header band: brand light blue (explicit — no colour-mix drift). */
+  --table-head: var(--primary5);
+  --table-head-border: #d3e6fb;
+  --muted-foreground: #52637a;
+  --border: #dce7f3;
+  --input: #c9d9ea;
+  --ring: var(--primary2);
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-border: var(--border);
+  --sidebar-accent: var(--primary5);
+  --sidebar-accent-foreground: var(--primary2);
+  --brand: var(--primary2);
+  --brand-strong: var(--primary1);
+  --grad-brand: linear-gradient(135deg, var(--primary1), var(--primary3) 55%, var(--primary2));
+  --chart-1: var(--primary2);
+  --chart-2: oklch(0.66 0.12 185);
+  --chart-3: oklch(0.6 0.14 155);
+  --chart-4: oklch(0.74 0.15 68);
+  --chart-5: oklch(0.63 0.2 350);
+  --chart-accent: var(--chart-1);
+  --chart-grid: var(--border);
+  --shadow-card: 0 1px 2px rgb(10 50 89 / 4%), 0 10px 28px -14px rgb(10 50 89 / 14%);
+  --shadow-pop: 0 2px 6px rgb(10 50 89 / 6%), 0 18px 40px -18px rgb(10 50 89 / 22%);
+  --grad-primary: linear-gradient(135deg, #3aa0ff, var(--primary2) 55%, #1a7ff0);
+  /* Chart tokens — validated with the dataviz validator (light, white surface):
+     emphasis accent, de-emphasis gray, 4-step ordinal blue (strong -> weak). */
+  --viz-accent: #1d90ff;
+  --viz-muted: #a3adbb;
+  --viz-seq-1: #0a3259;
+  --viz-seq-2: #1447e6;
+  --viz-seq-3: #1d90ff;
+  --viz-seq-4: #7dbbff;
+  --viz-zone: color-mix(in oklch, #1d90ff 8%, transparent);
+  background: var(--background);
+  color: var(--foreground);
+}
+.dark .dashboard-shell {
+  --background: #0b1524;
+  --foreground: #e8f1fc;
+  --card: #101c2e;
+  --popover: #13213a;
+  --primary: #5aa9ff;
+  --primary-foreground: #06182c;
+  --secondary: #172a44;
+  --secondary-foreground: var(--foreground);
+  --accent: #16294a;
+  --accent-foreground: var(--primary4);
+  --muted: #15243a;
+  --table-head: #13243c;
+  --table-head-border: #22395a;
+  --muted-foreground: #9fb2c9;
+  --border: #1f3350;
+  --input: #2a4263;
+  --sidebar: #0e1a2b;
+  --sidebar-accent: #16294a;
+  --sidebar-accent-foreground: var(--primary4);
+  --brand: var(--primary2);
+  --chart-1: #5aa9ff;
+  --chart-2: oklch(0.76 0.11 185);
+  --chart-3: oklch(0.75 0.13 155);
+  --chart-4: oklch(0.8 0.13 72);
+  --chart-5: oklch(0.72 0.17 350);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 30%), 0 12px 30px -16px oklch(0 0 0 / 55%);
+  --shadow-pop: 0 2px 8px oklch(0 0 0 / 35%), 0 20px 44px -18px oklch(0 0 0 / 60%);
+  --grad-primary: linear-gradient(135deg, var(--primary2), var(--primary3));
+  /* Dark chart tokens — own steps validated against the dark card surface
+     (strong = lightest in dark). */
+  --viz-accent: #5aa9ff;
+  --viz-muted: #56627a;
+  --viz-seq-1: #d4e9ff;
+  --viz-seq-2: #7dbbff;
+  --viz-seq-3: #1d90ff;
+  --viz-seq-4: #1447e6;
+  --viz-zone: color-mix(in oklch, #5aa9ff 10%, transparent);
+}
+.dashboard-shell ::selection { background: color-mix(in oklch, var(--primary) 22%, transparent); }
+
+/* Canvas: a faint brand glow behind the content area. */
+.dashboard-main {
+  background-image:
+    radial-gradient(56rem 26rem at 100% -8%, color-mix(in oklch, var(--primary) 8%, transparent), transparent 70%),
+    radial-gradient(40rem 22rem at -6% 0%, color-mix(in oklch, var(--chart-2) 7%, transparent), transparent 70%);
+  background-repeat: no-repeat;
+}
+
+/* Cards: hairline border + soft layered elevation. */
+.dashboard-shell [data-slot="card"] {
+  border-radius: 1rem;
+  border-color: color-mix(in oklch, var(--border) 85%, transparent);
+  box-shadow: var(--shadow-card);
+}
+.dashboard-shell [data-slot="card-title"] {
+  font-family: var(--font-heading);
+  font-size: 1rem;              /* type scale: one card-title size everywhere */
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
+}
+
+/* Dashboard type scale — use these instead of ad-hoc sizes:
+   page title (.dashboard-page-title) › card title 16px › KPI 26px (.ds-kpi)
+   › item title 15px (.ds-item) › body 14px › meta 12px (.ds-meta). Nothing below 12px. */
+.ds-kpi { font-size: 1.625rem; font-weight: 650; line-height: 1.2; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.ds-item { font-size: .9375rem; font-weight: 600; line-height: 1.4; }
+.ds-meta { font-size: .75rem; line-height: 1.5; color: var(--muted-foreground); }
+.dashboard-shell [data-slot="card-description"] { line-height: 1.65; }
+
+/* AI overview card: soft brand-blue wash so summaries stand out from data cards. */
+.dashboard-shell .ai-overview {
+  border-color: color-mix(in srgb, var(--primary2) 22%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary5) 85%, var(--card)), var(--card) 70%);
+}
+.dark .dashboard-shell .ai-overview {
+  border-color: color-mix(in srgb, var(--primary2) 28%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary3) 16%, var(--card)), var(--card) 70%);
+}
+
+/* Indeterminate progress bar (lists loading their next page: animate-[progress_...]). */
+@keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .animate-\[progress_1s_ease-in-out_infinite\] { animation: none; } }
+
+/* Segmented tabs (components/ui/segmented-tabs.tsx): a soft track with a raised,
+   brand-tinted active tab. "cards" add an icon chip that fills with the brand
+   colour when active, so page switchers read as separate destinations. */
+.segmented-tabs { background: color-mix(in srgb, var(--muted) 80%, var(--card)); border-color: var(--border); }
+.segmented-tab { color: var(--muted-foreground); }
+.segmented-tab:hover { color: var(--foreground); background: color-mix(in srgb, var(--card) 60%, transparent); }
+.segmented-tab:focus-visible { box-shadow: 0 0 0 2px var(--ring); }
+.segmented-tab[data-active] {
+  color: var(--foreground);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(10 50 89 / 8%), 0 4px 12px -6px rgb(10 50 89 / 18%), inset 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.segmented-tabs-icon { color: var(--muted-foreground); }
+.segmented-tabs-icon[data-chip] { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+.segmented-tab[data-active] .segmented-tabs-icon { color: var(--primary); }
+.segmented-tab[data-active] .segmented-tabs-icon[data-chip] { color: var(--primary-foreground); background: var(--grad-primary, var(--primary)); box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--primary) 60%, transparent); }
+.segmented-tabs-count { background: color-mix(in srgb, var(--muted-foreground) 14%, transparent); }
+.segmented-tab[data-active] .segmented-tabs-count { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); }
+.dark .segmented-tab[data-active] { box-shadow: 0 1px 2px oklch(0 0 0 / 35%), inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent); }
+
+/* Tables: tinted header band, calmer rows. */
+.dashboard-shell table thead tr { background: var(--table-head); border-color: var(--table-head-border); }
+.dashboard-shell table thead th { font-weight: 600; letter-spacing: 0.05em; }
+.dashboard-shell table tbody tr { transition: background-color 120ms; }
+
+/* Buttons: gradient primary with a soft brand shadow. */
+.dashboard-shell [data-slot="button"] { transition-property: color, background-color, border-color, box-shadow, transform, filter; }
+.dashboard-shell [data-slot="button"][data-variant="default"] {
+  background-image: var(--grad-primary);
+  box-shadow: 0 1px 2px rgb(10 50 89 / 10%), 0 6px 16px -6px color-mix(in oklch, var(--primary) 55%, transparent);
+}
+.dashboard-shell [data-slot="button"][data-variant="default"]:hover { filter: brightness(1.07); }
+.dashboard-shell [data-slot="button"][data-variant="outline"] { background-color: var(--card); }
+
+/* Inputs: card surface + blue focus glow. */
+.dashboard-shell :is(input, textarea) { background-color: var(--card); }
+.dashboard-shell :is(a, button, input, textarea, select):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.dashboard-shell [data-slot="input"]:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 16%, transparent);
+}
+
+/* Sidebar: tinted wash, brand logo, active pill with accent bar. */
+.dashboard-sidebar {
+  background: linear-gradient(180deg, var(--sidebar) 0%, color-mix(in oklch, var(--sidebar) 94%, var(--primary)) 100%);
+}
+.dashboard-logo { box-shadow: 0 6px 16px -6px rgb(29 144 255 / 55%); }
+.dashboard-nav-section { letter-spacing: 0.1em; color: color-mix(in oklch, var(--muted-foreground) 80%, transparent); }
+.dashboard-shell .dashboard-nav-link[aria-current="page"] {
+  position: relative;
+  background: linear-gradient(90deg, color-mix(in oklch, var(--primary) 13%, transparent), color-mix(in oklch, var(--primary) 4%, transparent));
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: none;
+}
+.dashboard-shell .dashboard-nav-link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  inset-block: 0.45rem;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--grad-primary);
+}
+
+/* Top bar: frosted glass. */
+.dashboard-topbar {
+  background: color-mix(in oklch, var(--card) 78%, transparent);
+  border-bottom-color: color-mix(in oklch, var(--border) 80%, transparent);
+  box-shadow: 0 1px 0 color-mix(in oklch, var(--card) 60%, transparent) inset;
+}
+.dashboard-avatar {
+  background-image: var(--grad-primary);
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px color-mix(in oklch, var(--primary) 35%, transparent);
+}
+
+/* Page header: title icon in a tinted chip. */
+.dashboard-page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.dashboard-page-title { display: flex; align-items: center; gap: .75rem; font-size: clamp(1.5rem, 1.2rem + .7vw, 2rem); font-weight: 700; letter-spacing: -.04em; line-height: 1.3; }
+.dashboard-page-title > svg {
+  flex-shrink: 0;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: .5rem;
+  border-radius: .8rem;
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 11%, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 16%, transparent);
+}
+.dashboard-page-description { margin-top: .5rem; max-width: 65ch; font-size: .875rem; color: var(--muted-foreground); line-height: 1.7; }
+.dashboard-eyebrow { margin-bottom: .5rem; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--primary); }
+
+/* Stat cards: accent line + gradient icon chip. */
+.dashboard-shell .dashboard-stat { position: relative; overflow: hidden; gap: .7rem; padding-block: 1.25rem; }
+.dashboard-shell .dashboard-stat::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  background: var(--grad-primary);
+  opacity: .85;
+}
+.dashboard-stat-value { font-size: 1.625rem; font-weight: 650; line-height: 1.2; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.dashboard-icon {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 2.1rem; height: 2.1rem; border-radius: .7rem;
+  color: var(--primary);
+  background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 16%, var(--card)), color-mix(in oklch, var(--chart-2) 12%, var(--card)));
+}
+.dashboard-delta { display: inline-flex; gap: .25rem; align-items: center; font-size: .75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dashboard-nav-link { min-height: 2.5rem; }
+.dashboard-quick-action { display: flex; align-items: center; gap: .75rem; padding: .75rem; border-radius: .75rem; font-size: .8125rem; font-weight: 500; transition: background-color 160ms; }
+.dashboard-quick-action:hover { background: var(--muted); }
+.dashboard-skip-link { position: fixed; top: .5rem; left: .5rem; z-index: 60; padding: .75rem 1rem; border-radius: .5rem; background: var(--primary); color: var(--primary-foreground); transform: translateY(-150%); }
+.dashboard-skip-link:focus { transform: translateY(0); }
+@media (max-width: 640px) {
+  /* Touch targets on phones: standard and large buttons grow to 44px; compact row actions keep their size. */
+  .dashboard-shell [data-slot="button"]:is([data-size="default"], [data-size="lg"]) { min-height: 2.75rem; }
+  .dashboard-shell [data-slot="card-header"], .dashboard-shell [data-slot="card-content"] { padding-inline: 1rem; }
+  .dashboard-page-header > div:last-child { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell *, .dashboard-shell *::before, .dashboard-shell *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
