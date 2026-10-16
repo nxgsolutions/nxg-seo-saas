@@ -36,8 +36,13 @@ const SCOPES: { id: RankedScope; label: string; hint: string }[] = [
   { id: "top", label: "Top 100", hint: "Top keywords by traffic (one request)" },
   // "Relevant" = the backend topic rule (DATAFORSEO_RELEVANT_KEYWORD_REGEX) + position/volume limits.
   { id: "relevant", label: "Relevant", hint: "Keywords on your topic that rank in the top 20 with 50+ searches" },
+  // "all" stays in the map for labelling any legacy stored run, but is hidden
+  // from the scope selector (see VISIBLE_SCOPES) — it's the only costly scope.
   { id: "all", label: "All keywords", hint: "Every keyword the domain ranks for (paged, capped)" },
 ]
+// Scopes offered in the UI. "all" is intentionally omitted to steer users to the
+// two cheap, high-value scopes (Top 100 + Relevant); the backend still supports it.
+const VISIBLE_SCOPES = SCOPES.filter((s) => s.id !== "all")
 const STOP_REASON: Record<string, string> = {
   complete: "complete",
   cap_reached: "stopped at the per-fetch cap",
@@ -54,7 +59,7 @@ const BUCKETS = [
   { id: "top20", label: "11–20", test: (p: number) => p > 10 && p <= 20 },
   { id: "rest", label: "21+", test: (p: number) => p > 20 },
 ] as const
-type SortKey = "etv" | "position" | "search_volume" | "keyword_difficulty"
+type SortKey = "etv" | "position" | "search_volume" | "keyword_difficulty" | "keyword"
 
 function kdColor(v: number | null) {
   if (v == null) return "text-muted-foreground"
@@ -76,12 +81,12 @@ function Change({ row }: { row: RankedKeywordRow }) {
 
 type Sort = { key: SortKey; dir: "asc" | "desc" }
 
-function SortTh({ k, sort, onSort, children, help }: {
-  k: SortKey; sort: Sort; onSort: (k: SortKey) => void; children: React.ReactNode; help?: React.ReactNode
+function SortTh({ k, sort, onSort, children, help, className }: {
+  k: SortKey; sort: Sort; onSort: (k: SortKey) => void; children: React.ReactNode; help?: React.ReactNode; className?: string
 }) {
   const active = sort.key === k
   return (
-    <th className="px-3 py-2 text-right font-medium">
+    <th className={cn("px-3 py-2 text-right font-medium", className)}>
       <span className="inline-flex items-center gap-1">
         <button type="button" onClick={() => onSort(k)} className={cn("inline-flex items-center gap-0.5 uppercase", active && "text-foreground")}>
           {children}{active && (sort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
@@ -206,7 +211,7 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
 
   function sortBy(key: SortKey) {
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
-      : { key, dir: key === "position" || key === "keyword_difficulty" ? "asc" : "desc" }))
+      : { key, dir: key === "position" || key === "keyword_difficulty" || key === "keyword" ? "asc" : "desc" }))
   }
 
   /** Every row matching the current filters (fetched in big pages), as CSV. */
@@ -243,7 +248,7 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
       const st = storedBy.get(d)
       return {
         domain: d,
-        group: d === you ? "Your site" : st ? "Data saved" : "No data yet — fetch after opening",
+        group: d === you ? "Your site" : st ? "Saved" : "Not fetched yet",
         hint: st ? `${compact(st.items_count)} kw · ${timeAgo(st.fetched_at)}` : undefined,
       }
     })
@@ -373,7 +378,7 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
             <p className="font-medium">Pick a competitor to see its keywords</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Use the search box above, or start with one of these.
-              <span className="ml-2 inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-emerald-500" /> data saved</span>
+              <span className="ml-2 inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-emerald-500" /> saved</span>
             </p>
             {quickPicks.length > 0 && (
               <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -405,15 +410,15 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
                 {storedHere ? (
                   <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     <span className="size-2 rounded-full bg-emerald-500" />
-                    <span className="font-medium text-emerald-700 dark:text-emerald-400">Data saved</span>
-                    · {scopeLabel} · {compact(storedHere.items_count)} keywords · fetched {timeAgo(storedHere.fetched_at)}
+                    <span className="font-medium text-foreground">{compact(storedHere.items_count)} {scopeLabel} keywords</span>
+                    · updated {timeAgo(storedHere.fetched_at)}
                     {data.scope === activeScope && data.stop_reason && data.stop_reason !== "complete" ? ` · ${STOP_REASON[data.stop_reason]}` : ""}
                   </p>
                 ) : (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span className="size-2 rounded-full bg-amber-500" />
-                    <span className="font-medium text-amber-700 dark:text-amber-400">No data yet</span>
-                    · nothing fetched for {scopeLabel}
+                    <span className="font-medium text-amber-700 dark:text-amber-400">Not fetched yet</span>
+                    · no {scopeLabel} keywords for this domain
                   </p>
                 )}
               </div>
@@ -429,7 +434,7 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
             <div className="flex flex-wrap items-center gap-3 border-t border-border px-6 py-3">
               <span className="text-xs text-muted-foreground">Show</span>
               <div className="inline-flex rounded-lg bg-muted p-0.5">
-                {SCOPES.map((s) => {
+                {VISIBLE_SCOPES.map((s) => {
                   const st = data.stored_scopes.find((x) => x.scope === s.id)
                   return (
                     <button key={s.id} type="button" onClick={() => pickScope(s.id)} title={s.hint}
@@ -510,10 +515,10 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
                   </p>
                   <div className="mt-4 flex justify-center">{fetchAction(true)}</div>
                   {actionNote && <p className="mt-2 text-xs text-muted-foreground">{actionNote}</p>}
-                  {data.stored_scopes.length > 0 && (
+                  {data.stored_scopes.some((x) => x.scope !== "all") && (
                     <p className="mt-4 text-xs text-muted-foreground">
                       Already saved:{" "}
-                      {data.stored_scopes.map((x, i) => (
+                      {data.stored_scopes.filter((x) => x.scope !== "all").map((x, i) => (
                         <React.Fragment key={x.scope}>
                           {i > 0 && " · "}
                           <button type="button" onClick={() => pickScope(x.scope)} className="font-medium text-primary hover:underline">
@@ -554,7 +559,7 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-2 border-t border-border px-6 py-3">
                   <SearchInput value={q} onValueChange={setQ}
-                    placeholder="Filter keyword or URL…" className="min-w-[180px] flex-1" />
+                    placeholder="Filter keywords…" className="min-w-[180px] flex-1" />
                   <div className="flex flex-wrap gap-1">
                     {BUCKETS.map((b) => (
                       <button key={b.id} type="button" onClick={() => setBucket(b.id)}
@@ -576,16 +581,25 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[980px] text-sm">
+                  <table className="w-full min-w-full text-sm sm:min-w-[980px]">
                     <thead>
                       <tr className="border-y border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                        <th className="px-6 py-2 font-medium"><HeaderWithHelp help={COLUMN_HELP.keywordUrl}>Keyword · ranking URL</HeaderWithHelp></th>
+                        <th className="px-4 py-2 font-medium sm:px-6">
+                          <span className="inline-flex items-center gap-1">
+                            <button type="button" onClick={() => sortBy("keyword")}
+                              className={cn("inline-flex items-center gap-0.5 uppercase", sort.key === "keyword" && "text-foreground")}>
+                              Keyword · ranking URL
+                              {sort.key === "keyword" && (sort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                            </button>
+                            <ColumnHelp text={COLUMN_HELP.keywordUrl} label="Keyword" />
+                          </span>
+                        </th>
                         <SortTh k="position" sort={sort} onSort={sortBy} help={COLUMN_HELP.position}>Pos.</SortTh>
-                        <SortTh k="search_volume" sort={sort} onSort={sortBy} help={COLUMN_HELP.volume}>Volume</SortTh>
-                        <SortTh k="etv" sort={sort} onSort={sortBy} help={COLUMN_HELP.estTraffic}>Est. traffic</SortTh>
-                        <th className="px-3 py-2 text-right font-medium"><HeaderWithHelp help={COLUMN_HELP.cpc}>CPC</HeaderWithHelp></th>
-                        <SortTh k="keyword_difficulty" sort={sort} onSort={sortBy} help={COLUMN_HELP.seoDifficulty}>SEO diff.</SortTh>
-                        {!data.is_you && <th className="px-6 py-2 text-right font-medium"><HeaderWithHelp help={COLUMN_HELP.yourPosition}>Your pos.</HeaderWithHelp></th>}
+                        <SortTh k="search_volume" sort={sort} onSort={sortBy} help={COLUMN_HELP.volume} className="hidden sm:table-cell">Volume</SortTh>
+                        <SortTh k="etv" sort={sort} onSort={sortBy} help={COLUMN_HELP.estTraffic} className="hidden min-[480px]:table-cell">Est. traffic</SortTh>
+                        <th className="hidden px-3 py-2 text-right font-medium sm:table-cell"><HeaderWithHelp help={COLUMN_HELP.cpc}>CPC</HeaderWithHelp></th>
+                        <SortTh k="keyword_difficulty" sort={sort} onSort={sortBy} help={COLUMN_HELP.seoDifficulty} className="hidden min-[480px]:table-cell">SEO diff.</SortTh>
+                        {!data.is_you && <th className="px-4 py-2 text-right font-medium sm:px-6"><HeaderWithHelp help={COLUMN_HELP.yourPosition}>Your pos.</HeaderWithHelp></th>}
                       </tr>
                     </thead>
                     <tbody className={cn("divide-y divide-border/60 transition-opacity", ranked.isPlaceholderData && "opacity-60")}>
@@ -594,7 +608,7 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
                       )}
                       {pageRows.map((r) => (
                         <tr key={r.keyword} className="hover:bg-muted/40">
-                          <td className="max-w-[420px] px-6 py-2">
+                          <td className="max-w-[200px] px-4 py-2 sm:max-w-[420px] sm:px-6">
                             <div className="flex min-w-0 items-start gap-2">
                             <KeywordActionsMenu keyword={r.keyword} workspaceId={workspaceId} domainId={domainId} className="mt-px" />
                             <div className="min-w-0 flex-1">
@@ -617,12 +631,12 @@ export function RankedKeywordsCard({ workspaceId, domainId, selected, onSelect }
                             <span className={cn("font-semibold", r.position != null && posColor(r.position))}>{r.position ?? "—"}</span>
                             <Change row={r} />
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums">{r.search_volume != null ? r.search_volume.toLocaleString() : "—"}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{r.etv != null ? compact(r.etv) : "—"}</td>
-                          <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{r.cpc != null ? `$${r.cpc.toFixed(2)}` : "—"}</td>
-                          <td className={cn("px-3 py-2 text-right font-semibold tabular-nums", kdColor(r.keyword_difficulty))}>{r.keyword_difficulty ?? "—"}</td>
+                          <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{r.search_volume != null ? r.search_volume.toLocaleString() : "—"}</td>
+                          <td className="hidden px-3 py-2 text-right tabular-nums min-[480px]:table-cell">{r.etv != null ? compact(r.etv) : "—"}</td>
+                          <td className="hidden px-3 py-2 text-right tabular-nums text-muted-foreground sm:table-cell">{r.cpc != null ? `$${r.cpc.toFixed(2)}` : "—"}</td>
+                          <td className={cn("hidden px-3 py-2 text-right font-semibold tabular-nums min-[480px]:table-cell", kdColor(r.keyword_difficulty))}>{r.keyword_difficulty ?? "—"}</td>
                           {!data.is_you && (
-                            <td className="px-6 py-2 text-right tabular-nums">
+                            <td className="px-4 py-2 text-right tabular-nums sm:px-6">
                               {r.our_position != null ? (
                                 <a href={r.our_url ?? undefined} target="_blank" rel="noopener noreferrer"
                                   className={cn(posColor(r.our_position), r.our_url && "hover:underline")}

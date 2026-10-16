@@ -3,9 +3,10 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { UrlCombobox } from "@/components/ui/url-combobox"
 import type { KeywordOption } from "@/lib/api/content-opt"
 import { cn } from "@/lib/utils"
-import { AlertTriangle, ChevronDown, Link2, Loader2, ScanSearch, Sparkles, Target, X } from "lucide-react"
+import { AlertTriangle, ChevronDown, Loader2, ScanSearch, Sparkles, Target, X } from "lucide-react"
 import type { ContentOptimizationScreen } from "../_hooks/use-content-optimization-screen"
 
 const SOURCE_LABEL: Record<KeywordOption["source"], string> = {
@@ -22,15 +23,9 @@ export function AnalyzeForm({ screen }: { screen: ContentOptimizationScreen }) {
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_auto] lg:items-end">
         <label className="grid gap-1.5">
           <span className="text-sm font-medium">Page URL</span>
-          <div className="relative">
-            <Link2 aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={form.url} onValueChange={(v) => { form.setUrl(v); if (form.error) form.clearError() }}
-              list="content-opt-pages" placeholder="https://yoursite.com/blog/post" disabled={running}
-              className="h-11 pl-9" aria-invalid={Boolean(form.error) || undefined} inputMode="url" />
-            <datalist id="content-opt-pages">
-              {pages.map((p) => <option key={p} value={p} />)}
-            </datalist>
-          </div>
+          <UrlCombobox value={form.url} onValueChange={(v) => { form.setUrl(v); if (form.error) form.clearError() }}
+            items={pages} placeholder="https://yoursite.com/blog/post" disabled={running}
+            invalid={Boolean(form.error)} aria-label="Page URL" />
         </label>
 
         <label className="grid gap-1.5">

@@ -306,14 +306,24 @@ function ResultsTab({ data, workspaceId, onUpdated, competitors, onAddCompetitor
   const [page, setPage] = React.useState(0)
   const [confirming, setConfirming] = React.useState(false)
   const [updating, setUpdating] = React.useState(false)
-  const pages = Math.max(1, Math.ceil(data.rows.length / PAGE))
-  const rows = data.rows.slice(page * PAGE, page * PAGE + PAGE)
+
+  // Your own ranking row(s) float to the top so you see your rank without
+  // paging past the results above you; the # column still shows real positions.
+  const ordered = React.useMemo(
+    () => [...data.rows.filter((r) => r.is_you), ...data.rows.filter((r) => !r.is_you)],
+    [data.rows],
+  )
+  const pages = Math.max(1, Math.ceil(ordered.length / PAGE))
+  const rows = ordered.slice(page * PAGE, page * PAGE + PAGE)
   const sandbox = data.environment === "sandbox"
   const s = data.summary
 
   async function update() {
     if (!workspaceId) return
-    if (!sandbox && !confirming) { setConfirming(true); return }
+    // Confirm guards re-spending on a SERP we already stored. The first-time
+    // "Fetch results" (nothing captured yet) loads in one click.
+    const needsConfirm = !sandbox && data.captured_at != null
+    if (needsConfirm && !confirming) { setConfirming(true); return }
     setConfirming(false); setUpdating(true)
     try {
       await serpApi.analyze(workspaceId, data.keyword, { country: data.country, language: data.language, depth: 100, refresh: true })
@@ -324,37 +334,57 @@ function ResultsTab({ data, workspaceId, onUpdated, competitors, onAddCompetitor
     } finally { setUpdating(false) }
   }
 
-  const updateButton = (
+  // Update (paid SERP re-fetch): a compact refresh icon; clicking a stored SERP
+  // expands it to a labelled confirm so re-spending is never a single stray tap.
+  const updateButton = confirming ? (
     <div className="flex items-center gap-2">
-      {/* Paid DataForSEO SERP call — depth 100 (full page 1-10), ~$0.019 live; sandbox workspaces skip the confirm. */}
-      {confirming && <span className="ds-meta">Fetches fresh Google results.</span>}
-      <Button size="sm" variant={confirming ? "default" : "outline"} onClick={update} disabled={updating || !workspaceId}>
+      <span className="ds-meta hidden sm:inline">Fetches fresh Google results.</span>
+      <Button size="sm" variant="default" onClick={update} disabled={updating}>
         {updating ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-        {confirming ? "Confirm update" : data.captured_at ? "Update" : "Fetch results"}
+        Confirm update
       </Button>
-      {confirming && <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>}
+      <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
     </div>
+  ) : (
+    <Button size="icon-sm" variant="outline" onClick={update} disabled={updating || !workspaceId}
+      title="Update search results" aria-label="Update search results">
+      {updating ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+    </Button>
   )
 
   if (!data.captured_at) {
     return (
-      <div className="space-y-3 py-6">
-        <h3 className="font-heading text-lg font-bold">Search Results</h3>
-        <p className="text-sm text-muted-foreground">
-          No Google results stored for “{data.keyword}” yet. Load them once — they&apos;re saved for next time.
-        </p>
-        {updateButton}
+      <div className="flex min-h-[340px] flex-col items-center justify-center gap-5 px-6 py-12 text-center">
+        <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 ring-8 ring-primary/5">
+          <Search className="size-7 text-primary" />
+        </div>
+        <div className="space-y-1.5">
+          <h3 className="font-heading text-xl font-bold tracking-tight">No search results yet</h3>
+          <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+            We haven&apos;t pulled Google&apos;s results for <span className="font-medium text-foreground">“{data.keyword}”</span> yet.
+            Fetch them once — they&apos;re saved and reused next time.
+          </p>
+        </div>
+        <Button size="lg" onClick={update} disabled={updating || !workspaceId} className="min-w-[200px] shadow-sm">
+          {updating ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+          {updating ? "Fetching results…" : "Fetch results"}
+        </Button>
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-heading text-lg font-bold">Search Results</h3>
-        {s.your_position != null
-          ? <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">You rank #{s.your_position}</span>
-          : <span className="ds-meta">You&apos;re not in these results</span>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h3 className="font-heading text-lg font-bold">Search Results</h3>
+          {s.your_position != null
+            ? <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">You rank #{s.your_position}</span>
+            : <span className="ds-meta">You&apos;re not in these results</span>}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {updateButton}
+        </div>
       </div>
 
       <div className="flex items-start gap-2.5 rounded-xl border border-primary/15 bg-accent px-4 py-3 text-sm">
@@ -441,10 +471,7 @@ function ResultsTab({ data, workspaceId, onUpdated, competitors, onAddCompetitor
             <Download className="size-3.5" /> Export all
           </Button>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="ds-meta">Search results last updated: {new Date(data.captured_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}</span>
-          {updateButton}
-        </div>
+        <span className="ds-meta">Search results last updated: {new Date(data.captured_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}</span>
       </div>
     </div>
   )

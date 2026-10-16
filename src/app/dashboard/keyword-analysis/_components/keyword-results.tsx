@@ -128,6 +128,8 @@ export function KeywordResults({ detail, workspaceId, domainId }: {
             <ResearchExplorer rows={results.data?.rows ?? []} workspaceId={workspaceId} domainId={domainId}
               country={detail.country_code} language={detail.language_code} selectedId={selectedId} onSelect={setSelectedId}
               sort={sort} onSortChange={setSort}
+              seedKeyword={page === 1 && cat === "all" && intent === "all" && !filter ? detail.seed_keyword : null}
+              seedMetric={detail.seed_metric}
               loading={results.isPending} fetching={results.isPlaceholderData || (results.isFetching && !results.isPending)}
               footer={<Pager className="mt-3" noun="keywords" pagination={results.data?.pagination}
                 fetching={results.isFetching} onPageChange={setPage} />} />

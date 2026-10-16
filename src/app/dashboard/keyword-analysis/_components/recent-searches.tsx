@@ -32,11 +32,23 @@ export function RecentSearches({ query, activeId, onOpen }: Props) {
   const items = query.data
   if (items.length === 0) return null
 
+  // One row per unique search (same term + type + location + language). The list
+  // is newest-first, so keeping the first occurrence keeps the latest run — repeat
+  // searches no longer pile up as duplicates.
+  const seen = new Set<string>()
+  const unique = items.filter((h) => {
+    const term = (h.kind === "domain" ? h.target ?? h.seed_keyword : h.seed_keyword).trim().toLowerCase()
+    const key = `${h.kind}|${term}|${h.country_code}|${h.language_code}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
   return (
     <Card>
       <CardContent className="space-y-1 pt-6">
         <p className="mb-1 text-sm font-semibold">Recent searches</p>
-        {items.map((h) => {
+        {unique.map((h) => {
           const isDomain = h.kind === "domain"
           const Icon = isDomain ? Globe : Search
           const active = h.id === activeId

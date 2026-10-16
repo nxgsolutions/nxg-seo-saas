@@ -65,7 +65,11 @@ export function useContentOptimizationScreen() {
   const debouncedUrl = useDebouncedValue(url.trim(), 400)
   const keywordOptions = useKeywordOptions(workspaceId, domainId, debouncedUrl)
   // The active website's tracked pages (Page history), newest checked first.
-  const sitePages = useSitePages(workspaceId, domainId, 1, "", "checked", 50).data
+  // Searched on the server by what's typed so ANY matching page surfaces — not
+  // just the first page of rows. The scheme is stripped because url_key is
+  // host+path (no scheme), so a full URL and a bare fragment both match.
+  const pageSearch = debouncedUrl.replace(/^https?:\/\//i, "")
+  const sitePages = useSitePages(workspaceId, domainId, 1, pageSearch, "checked", 100).data
   const siteHost = activeDomain?.domain ?? ""
   const pages = React.useMemo(() => {
     const out = siteHost ? [`https://${siteHost.replace(/^https?:\/\//, "")}/`] : []

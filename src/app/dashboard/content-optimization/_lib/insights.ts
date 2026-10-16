@@ -71,6 +71,24 @@ const ACTION: Record<string, string> = {
   external_links: "Cite a trustworthy source",
 }
 
+/** The topic area each rule check belongs to — used to drop AI recommendations
+ *  that just restate a failing check. */
+const CHECK_BUCKET: Record<string, string> = {
+  kw_title: "title", title_len: "title",
+  kw_meta: "meta", meta_len: "meta",
+  kw_h1: "headings", h1_single: "headings", kw_sub: "headings", subheadings: "headings",
+  kw_intro: "content", words: "content", terms: "content", lists: "content",
+  kw_density: "keywords", kw_url: "keywords",
+  paragraphs: "readability", readability: "readability",
+  internal_links: "links", external_links: "links",
+  img_alt: "media",
+}
+/** AI recommendation `area` → the same topic buckets as the rule checks. */
+const AI_BUCKET: Record<string, string> = {
+  title: "title", meta: "meta", headings: "headings", content: "content",
+  keywords: "keywords", readability: "readability", links: "links", media: "media",
+}
+
 export function recommendations(r: ContentOptResult): Recommendation[] {
   const ai = r.ai
   const out: Recommendation[] = []
@@ -99,10 +117,28 @@ export function recommendations(r: ContentOptResult): Recommendation[] {
     seen.add(k)
     return true
   })
-  ai?.recommendations.forEach((a, i) => deduped.push({
-    id: `ai-${i}`, priority: a.priority === "high" ? "high" : "opportunity", source: "ai",
-    title: a.recommendation, text: "",
-  }))
+  // AI recommendations often restate the rule checks ("add an H1", "shorten the
+  // title"). Add only the ones that bring something new: drop any AI rec whose
+  // area a failing check already covers, and drop near-identical AI recs.
+  const covered = new Set<string>()
+  for (const x of deduped) {
+    const b = CHECK_BUCKET[x.id]
+    if (b) covered.add(b)
+  }
+  const aiSeen = new Set<string>()
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+  ai?.recommendations.forEach((a, i) => {
+    const text = (a.recommendation || "").trim()
+    const key = normalize(text)
+    if (!key || aiSeen.has(key)) return
+    aiSeen.add(key)
+    const bucket = AI_BUCKET[(a.area || "").toLowerCase()]
+    if (bucket && covered.has(bucket)) return
+    deduped.push({
+      id: `ai-${i}`, priority: a.priority === "high" ? "high" : "opportunity", source: "ai",
+      title: text, text: "", suggested: a.suggestion || undefined,
+    })
+  })
   for (const c of r.checks) {
     if (c.status === "pass") deduped.push({ id: `ok-${c.id}`, priority: "good", source: "check", title: c.label, text: c.value })
   }

@@ -58,6 +58,9 @@ export function SegmentedTabs<T extends string>({
       className={cn(
         "segmented-tabs flex max-w-full gap-1 overflow-x-auto rounded-2xl border p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         fill ? "w-full" : "w-fit",
+        // Cards (page switchers) fill the width and split evenly on mobile so
+        // both tabs fit without clipping; natural width from sm up.
+        cards && !fill && "w-full sm:w-fit",
         className,
       )}
     >
@@ -68,27 +71,31 @@ export function SegmentedTabs<T extends string>({
           <>
             {Icon && (
               <span data-chip={cards || undefined}
-                className={cn("segmented-tabs-icon flex shrink-0 items-center justify-center", cards ? "size-8 rounded-lg" : "size-4")}>
+                className={cn("segmented-tabs-icon shrink-0 items-center justify-center",
+                  // Hide the icon chip on mobile for card tabs so the title has room.
+                  cards ? "hidden size-8 rounded-lg sm:flex" : "flex size-4")}>
                 <Icon className="size-4" aria-hidden="true" />
               </span>
             )}
             <span className="min-w-0 text-left">
-              <span className="flex items-center gap-1.5 whitespace-nowrap font-semibold">
-                {item.label}
+              <span className="flex min-w-0 items-center gap-1.5 font-semibold">
+                <span className="truncate">{item.label}</span>
                 {item.count != null && (
-                  <span className="segmented-tabs-count rounded-full px-1.5 text-xs font-medium tabular-nums">{item.count}</span>
+                  <span className="segmented-tabs-count shrink-0 rounded-full px-1.5 text-xs font-medium tabular-nums">{item.count}</span>
                 )}
               </span>
               {cards && item.description && (
-                <span className="block whitespace-nowrap text-xs font-normal text-muted-foreground">{item.description}</span>
+                <span className="hidden whitespace-nowrap text-xs font-normal text-muted-foreground sm:block">{item.description}</span>
               )}
             </span>
           </>
         )
         const cls = cn(
           "segmented-tab flex min-w-0 items-center gap-2.5 rounded-xl text-sm outline-none transition-[background-color,color,box-shadow]",
-          cards ? "px-3 py-2 pr-5" : "px-3 py-1.5",
+          cards ? "px-3 py-2 sm:pr-5" : "px-3 py-1.5",
           fill && "flex-1 justify-center",
+          // Mobile card tabs split the row evenly; natural width from sm up.
+          cards && !fill && "flex-1 justify-center sm:flex-none sm:justify-start",
         )
         return item.href ? (
           <Link key={item.value} href={item.href} aria-current={active ? "page" : undefined}

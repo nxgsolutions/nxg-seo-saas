@@ -76,6 +76,8 @@ export interface TermRow {
 export interface OptSuggestion {
   area: string
   recommendation: string
+  /** Ready-to-use text to apply (e.g. a rewritten meta description); null when the action isn't a text change. */
+  suggestion?: string | null
   priority: "high" | "medium" | "low" | string
 }
 

@@ -4,7 +4,7 @@ import * as React from "react"
 import { ArrowDownUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { ResearchResult } from "@/lib/api/keyword-analysis"
+import type { KeywordMetric, ResearchResult } from "@/lib/api/keyword-analysis"
 import { cn } from "@/lib/utils"
 import { OpportunityMapChart } from "@/components/charts/lazy"
 import { ColumnHelp, HeaderWithHelp } from "@/components/ui/column-help"
@@ -37,13 +37,16 @@ export function KeywordOpportunityMap({ points, skipped, selectedId, onSelect }:
  * (dimmed + progress bar) so the table never collapses or jumps.
  */
 export function ResearchExplorer({ rows, workspaceId, domainId, country, language, selectedId, onSelect: setSelectedId,
-  sort, onSortChange, loading = false, fetching = false, footer }: {
+  sort, onSortChange, loading = false, fetching = false, footer, seedKeyword, seedMetric }: {
   rows: ResearchResult[]; workspaceId: string; domainId?: string | null; country: string; language: string
   selectedId: string | null; onSelect: (id: string) => void
   sort: ResultSort; onSortChange: (sort: ResultSort) => void
   loading?: boolean; fetching?: boolean
   /** Rendered under the table (the pager). */
   footer?: React.ReactNode
+  /** The searched keyword — pinned to the top of the list and highlighted. */
+  seedKeyword?: string | null
+  seedMetric?: KeywordMetric | null
 }) {
   const resultsRef = React.useRef<HTMLDivElement>(null)
   // A new page / sort starts at the top of the table.
@@ -51,6 +54,33 @@ export function ResearchExplorer({ rows, workspaceId, domainId, country, languag
   React.useEffect(() => { resultsRef.current?.scrollTo({ top: 0 }) }, [firstId])
   // Clicking a keyword opens its Keyword Breakdown (metrics, trend, Google results).
   const [breakdown, setBreakdown] = React.useState<string | null>(null)
+
+  // Pin the searched keyword at the top, highlighted, so it's always visible
+  // instead of buried by the volume sort. Reuse its real row (keeps id + metric)
+  // when it's on this page; otherwise synthesize one from the seed's own metric.
+  const normKw = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ")
+  const seedNorm = seedKeyword ? normKw(seedKeyword) : null
+  const seedExisting = seedNorm ? rows.find((r) => normKw(r.keyword) === seedNorm) : undefined
+  const pinned: ResearchResult | null = seedNorm && seedKeyword
+    ? seedExisting ?? { rank: 0, keyword_id: `seed:${seedNorm}`, keyword: seedKeyword, country_code: country, language_code: language, sources: [], metric: seedMetric ?? null }
+    : null
+  const bodyRows = seedExisting ? rows.filter((r) => r !== seedExisting) : rows
+
+  const renderRow = (row: ResearchResult, isSeed = false) => (
+    <tr key={row.keyword_id} className={cn("border-b last:border-0 hover:bg-muted/40",
+      isSeed ? "bg-amber-400/15 hover:bg-amber-400/20" : selectedId === row.keyword_id && "bg-primary/10")}>
+      <td className="p-3"><div className="flex items-center gap-2">
+        <KeywordActionsMenu keyword={row.keyword} workspaceId={workspaceId} domainId={domainId} country={country} language={language} />
+        <button className="text-left font-medium text-primary underline-offset-4 hover:underline" title="Open keyword breakdown" onClick={() => { setSelectedId(row.keyword_id); setBreakdown(row.keyword) }}>{row.keyword}</button>
+        {isSeed && <span className="shrink-0 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Your search</span>}
+      </div></td>
+      <td className="p-2 text-right tabular-nums">{number(row.metric?.search_volume)}</td>
+      <td className="p-2 text-right tabular-nums">{number(row.metric?.cpc)}</td>
+      <td className="p-2 text-right tabular-nums">{number(row.metric?.competition)}</td>
+      <td className="p-2 text-right tabular-nums">{row.metric?.difficulty == null ? "—" : Math.round(row.metric.difficulty)}</td>
+      <td className="p-3"><Badge variant="outline">{row.metric?.intent ?? "Unknown"}</Badge></td>
+    </tr>
+  )
   return <div className="min-w-0">
     <p className="mb-3 text-xs text-muted-foreground">Click a keyword (or its + menu) for its metrics, monthly trend and Google results. Difficulty is an estimated score; advertising competition uses a 0–100 index.</p>
     <div className="relative">
@@ -58,7 +88,11 @@ export function ResearchExplorer({ rows, workspaceId, domainId, country, languag
       <div aria-hidden="true" className={cn("absolute inset-x-0 top-0 z-20 h-0.5 overflow-hidden rounded-t-lg transition-opacity", fetching ? "opacity-100" : "opacity-0")}>
         <div className="h-full w-1/3 animate-[progress_1s_ease-in-out_infinite] bg-primary" />
       </div>
+      {/* overscrollBehavior auto overrides .scroll-pane's `contain`: once this
+          table scrolls to its top/bottom the wheel keeps scrolling the page,
+          instead of staying trapped while the cursor is over the table. */}
       <div ref={resultsRef} tabIndex={0} aria-label="Keyword results" aria-busy={loading || fetching}
+        style={{ overscrollBehavior: "auto" }}
         className="scroll-pane max-h-[760px] min-h-[420px] overflow-auto rounded-lg border">
         <table className="w-full min-w-[620px] text-sm">
           <thead className="sticky top-0 z-10 bg-card"><tr className="border-b">
@@ -79,15 +113,11 @@ export function ResearchExplorer({ rows, workspaceId, domainId, country, languag
                 {[0, 1, 2, 3].map((c) => <td key={c} className="p-2"><Skeleton className="ml-auto h-4 w-12" /></td>)}
                 <td className="p-3"><Skeleton className="h-5 w-20 rounded-full" /></td>
               </tr>
-            )) : rows.map(row => <tr key={row.keyword_id} className={cn("border-b last:border-0 hover:bg-muted/40", selectedId === row.keyword_id && "bg-primary/10")}>
-              <td className="p-3"><div className="flex items-center gap-2"><KeywordActionsMenu keyword={row.keyword} workspaceId={workspaceId} domainId={domainId} country={country} language={language} /><button className="text-left font-medium text-primary underline-offset-4 hover:underline" title="Open keyword breakdown" onClick={() => { setSelectedId(row.keyword_id); setBreakdown(row.keyword) }}>{row.keyword}</button></div></td>
-              <td className="p-2 text-right tabular-nums">{number(row.metric?.search_volume)}</td>
-              <td className="p-2 text-right tabular-nums">{number(row.metric?.cpc)}</td>
-              <td className="p-2 text-right tabular-nums">{number(row.metric?.competition)}</td>
-              <td className="p-2 text-right tabular-nums">{row.metric?.difficulty == null ? "—" : Math.round(row.metric.difficulty)}</td>
-              <td className="p-3"><Badge variant="outline">{row.metric?.intent ?? "Unknown"}</Badge></td>
-            </tr>)}
-            {!loading && !rows.length ? <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No keywords match these filters.</td></tr> : null}
+            )) : <>
+              {pinned ? renderRow(pinned, true) : null}
+              {bodyRows.map((row) => renderRow(row))}
+            </>}
+            {!loading && !bodyRows.length && !pinned ? <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No keywords match these filters.</td></tr> : null}
           </tbody>
         </table>
       </div>

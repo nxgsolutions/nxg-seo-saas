@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { CategorySelect } from "@/components/dashboard/category-select"
 import { describeError, Modal, DomainField, domainFrom } from "@/components/dashboard/domain-dialogs"
 import { workspacesApi } from "@/lib/api/workspaces"
 import { cn } from "@/lib/utils"
@@ -23,13 +24,14 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: { open: boolean; o
   const [step, setStep] = React.useState<1 | 2>(1)
   const [name, setName] = React.useState("")
   const [site, setSite] = React.useState("")
+  const [category, setCategory] = React.useState<string | null>(null)
   const [sandbox, setSandbox] = React.useState(false)
   const [advanced, setAdvanced] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   function reset() {
-    setStep(1); setName(""); setSite(""); setSandbox(false); setAdvanced(false); setError(null)
+    setStep(1); setName(""); setSite(""); setCategory(null); setSandbox(false); setAdvanced(false); setError(null)
   }
 
   function next(e: React.FormEvent) {
@@ -47,7 +49,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: { open: boolean; o
       let warn: string | null = null
       if (domain) {
         // The workspace exists even if the site can't be added — say so instead of failing.
-        try { await workspacesApi.addDomain(ws.id, domain) }
+        try { await workspacesApi.addDomain(ws.id, domain, { categoryId: category }) }
         catch (err) { warn = describeError(err, "The domain could not be added.") }
       }
       await refreshWorkspaces()
@@ -136,6 +138,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: { open: boolean; o
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); void finish(true) }} className="space-y-4">
           <DomainField value={site} onChange={(v) => { setSite(v); setError(null) }} disabled={busy} autoFocus invalid={!!error} />
+          <CategorySelect value={category} onChange={setCategory} disabled={busy} />
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Button type="button" variant="ghost" onClick={() => { setStep(1); setError(null) }} disabled={busy}>

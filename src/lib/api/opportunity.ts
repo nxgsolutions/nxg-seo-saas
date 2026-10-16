@@ -283,6 +283,18 @@ export const opportunityApi = {
       + `${opts.country ? `&country=${opts.country}` : ""}`,
       {},
     ),
+
+  /** Cheap warm-up: fills Authority / Backlinks / Referring-domains for your
+   * domain + competitors (so the Keyword Breakdown columns populate). Pass the
+   * same `country` the breakdown uses, so rows store at the location it reads. */
+  warmBacklinks: (
+    wid: string, did: string, opts: { country?: string; force?: boolean } = {},
+  ) =>
+    apiClient.post<CompetitorAnalyticsRefresh>(
+      `${base(wid, did)}/strategy/backlinks/warm?force=${opts.force ?? false}`
+      + `${opts.country ? `&country=${opts.country}` : ""}`,
+      {},
+    ),
 }
 
 // ── Ranked keywords (DataForSEO Labs): where a domain ACTUALLY ranks ────────

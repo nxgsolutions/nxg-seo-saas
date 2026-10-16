@@ -180,9 +180,13 @@ function Editor({
   const initialLoading = contentQuery.isPending && !seeded
 
   return (
-    <div className="space-y-5">
+    // Desktop: a fixed-height dual-pane shell — the header stays put and each
+    // column scrolls inside its own region, so the page itself never scrolls.
+    // Height = viewport minus the sticky topbar (4rem) and the main padding
+    // (4rem). On mobile it falls back to a normal stacked, page-scrolling flow.
+    <div className="space-y-5 lg:flex lg:h-[calc(100dvh-8rem)] lg:flex-col lg:gap-5 lg:space-y-0 lg:overflow-hidden">
       {/* Breadcrumb + header */}
-      <div className="space-y-4">
+      <div className="space-y-4 lg:shrink-0">
         <BackLink />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -260,8 +264,9 @@ function Editor({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_23rem]">
-          {/* Editor column */}
+        <div className="grid items-start gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_23rem] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:overflow-hidden">
+          {/* Editor column — its own independent scroll area on desktop */}
+          <div className="scroll-smooth lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:[scrollbar-width:thin]">
           <Card>
             <CardContent className="space-y-5 pt-6">
               {initialLoading ? (
@@ -322,9 +327,11 @@ function Editor({
               )}
             </CardContent>
           </Card>
+          </div>
 
-          {/* Score sidebar — sticky so it stays with you down a long article */}
-          <div className="lg:sticky lg:top-6">
+          {/* Score sidebar — its own independent scroll area, so a long
+              checklist never gets "stuck" and neither pane scrolls the page. */}
+          <div className="scroll-smooth lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:[scrollbar-width:thin]">
             <Card>
               <CardContent className="space-y-5 pt-6">
                 <div className="flex flex-col items-center">

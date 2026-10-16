@@ -47,6 +47,9 @@ export interface Domain {
   brand_terms: string | null
   /** Local business: keep "near me" keywords. */
   is_local: boolean
+  /** Industry category id (null = uncategorized). Names resolve via the
+   * categories API. Drives category-scoped competitor suggestions. */
+  category_id: string | null
   created_at: string
 }
 
@@ -57,6 +60,8 @@ export interface DomainSettings {
   topic_terms?: string
   brand_terms?: string
   is_local?: boolean
+  /** Omit to leave unchanged; null clears the category. */
+  category_id?: string | null
 }
 
 export const workspacesApi = {
@@ -93,10 +98,11 @@ export const workspacesApi = {
   domains: (workspaceId: string) =>
     apiClient.get<Domain[]>(`/api/workspaces/${workspaceId}/domains`),
 
-  addDomain: (workspaceId: string, url: string, name?: string) =>
+  addDomain: (workspaceId: string, url: string, opts: { name?: string; categoryId?: string | null } = {}) =>
     apiClient.post<Domain>(`/api/workspaces/${workspaceId}/domains`, {
       url,
-      name,
+      name: opts.name,
+      category_id: opts.categoryId ?? null,
     }),
 
   /** Partial update of a domain's market + niche. */

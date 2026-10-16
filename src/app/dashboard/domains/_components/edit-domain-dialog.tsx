@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Loader2, Settings2, Sparkles } from "lucide-react"
+import { Check, Loader2, Plus, Settings2, Sparkles } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
@@ -10,11 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useDashboard } from "@/components/dashboard/dashboard-context"
 import { describeError, Modal } from "@/components/dashboard/domain-dialogs"
 import { COUNTRIES, LANGUAGES, labelFor } from "@/app/dashboard/settings/_lib/settings-helpers"
+import { useCategories, useCreateCategory } from "@/hooks/api/use-categories"
 import type { Domain } from "@/lib/api/workspaces"
 import { workspacesApi } from "@/lib/api/workspaces"
 
 // Sentinel for "fall back to the workspace default" (Select can't hold "").
 const DEFAULT = "__default__"
+// Sentinel for "no category" (Select can't hold "").
+const UNCATEGORIZED = "__none__"
 
 const FIELD_CLASS =
   "flex min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-xs " +
@@ -28,12 +31,17 @@ export function EditDomainDialog({ domain, onOpenChange }: {
   const { activeWorkspace, reloadDomains } = useDashboard()
   const wsCountry = labelFor(COUNTRIES, activeWorkspace?.default_country ?? "in", "India")
   const wsLanguage = labelFor(LANGUAGES, activeWorkspace?.default_language ?? "en", "English")
+  const { data: categories = [] } = useCategories()
+  const createCategory = useCreateCategory()
 
   const [country, setCountry] = React.useState(DEFAULT)
   const [language, setLanguage] = React.useState(DEFAULT)
   const [topics, setTopics] = React.useState("")
   const [brands, setBrands] = React.useState("")
   const [isLocal, setIsLocal] = React.useState(false)
+  const [category, setCategory] = React.useState(UNCATEGORIZED)
+  const [addingCategory, setAddingCategory] = React.useState(false)
+  const [newCategory, setNewCategory] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [deriving, setDeriving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -47,7 +55,24 @@ export function EditDomainDialog({ domain, onOpenChange }: {
     setTopics(domain?.topic_terms ?? "")
     setBrands(domain?.brand_terms ?? "")
     setIsLocal(domain?.is_local ?? false)
+    setCategory(domain?.category_id || UNCATEGORIZED)
+    setAddingCategory(false)
+    setNewCategory("")
     setError(null)
+  }
+
+  async function addCategory() {
+    const name = newCategory.trim()
+    if (!name) return
+    try {
+      const created = await createCategory.mutateAsync(name)
+      setCategory(created.id)
+      setAddingCategory(false)
+      setNewCategory("")
+      toast.success(`Added category "${created.name}"`)
+    } catch (err) {
+      setError(describeError(err, "Couldn't add the category."))
+    }
   }
 
   async function suggest() {
@@ -78,6 +103,7 @@ export function EditDomainDialog({ domain, onOpenChange }: {
         topic_terms: topics.trim(),
         brand_terms: brands.trim(),
         is_local: isLocal,
+        category_id: category === UNCATEGORIZED ? null : category,
       })
       toast.success(`Saved settings for ${domain.domain}`)
       onOpenChange(false)
@@ -117,6 +143,43 @@ export function EditDomainDialog({ domain, onOpenChange }: {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label>Category</Label>
+            {!addingCategory && (
+              <Button type="button" variant="outline" size="xs" onClick={() => setAddingCategory(true)} disabled={busy}>
+                <Plus className="size-3.5" /> New category
+              </Button>
+            )}
+          </div>
+          {addingCategory ? (
+            <div className="flex gap-2">
+              <input
+                autoFocus value={newCategory} onChange={(e) => setNewCategory(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCategory() } }}
+                placeholder="e.g. Real Estate" className={FIELD_CLASS} disabled={createCategory.isPending}
+              />
+              <Button type="button" size="sm" onClick={addCategory} disabled={createCategory.isPending || !newCategory.trim()}>
+                {createCategory.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Add
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingCategory(false); setNewCategory("") }} disabled={createCategory.isPending}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Select value={category} onValueChange={(v) => setCategory((v as string) ?? UNCATEGORIZED)} disabled={busy}>
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue>{(v) => (v === UNCATEGORIZED ? "Uncategorized" : (categories.find((c) => c.id === v)?.name ?? "Category"))}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={UNCATEGORIZED}>Uncategorized</SelectItem>
+                {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <p className="text-xs text-muted-foreground">Keeps competitor suggestions within this site&apos;s industry. Uncategorized shows all.</p>
         </div>
 
         <div className="space-y-1.5">

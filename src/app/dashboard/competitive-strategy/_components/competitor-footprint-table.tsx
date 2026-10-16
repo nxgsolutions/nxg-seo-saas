@@ -81,16 +81,16 @@ export function CompetitorFootprintTable({ workspaceId, domainId, data, analytic
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-full sm:min-w-[820px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-6 py-2.5 font-medium">Competitor</th>
-                <th className="px-4 py-2.5 text-right font-medium"><HeaderWithHelp help={COLUMN_HELP.keywordsShared}>Keywords shared</HeaderWithHelp></th>
-                <th className="px-4 py-2.5 text-right font-medium"><HeaderWithHelp help={COLUMN_HELP.common}>Common · your kw</HeaderWithHelp></th>
+                <th className="px-4 py-2.5 font-medium sm:px-6">Competitor</th>
+                <th className="hidden px-4 py-2.5 text-right font-medium min-[480px]:table-cell"><HeaderWithHelp help={COLUMN_HELP.keywordsShared}>Keywords shared</HeaderWithHelp></th>
+                <th className="hidden px-4 py-2.5 text-right font-medium sm:table-cell"><HeaderWithHelp help={COLUMN_HELP.common}>Common · your kw</HeaderWithHelp></th>
                 <th className="px-4 py-2.5 text-right font-medium"><HeaderWithHelp help={COLUMN_HELP.gap}>Gap · your kw</HeaderWithHelp></th>
-                <th className="px-4 py-2.5 text-right font-medium"><HeaderWithHelp help={COLUMN_HELP.avgPosition}>Avg pos.</HeaderWithHelp></th>
-                <th className="px-4 py-2.5 text-right font-medium"><HeaderWithHelp help={COLUMN_HELP.siteTraffic}>Est. traffic</HeaderWithHelp></th>
-                <th className="px-6 py-2.5 text-right font-medium"><HeaderWithHelp help={COLUMN_HELP.backlinks}>Backlinks</HeaderWithHelp></th>
+                <th className="hidden px-4 py-2.5 text-right font-medium sm:table-cell"><HeaderWithHelp help={COLUMN_HELP.avgPosition}>Avg pos.</HeaderWithHelp></th>
+                <th className="hidden px-4 py-2.5 text-right font-medium sm:table-cell"><HeaderWithHelp help={COLUMN_HELP.siteTraffic}>Est. traffic</HeaderWithHelp></th>
+                <th className="hidden px-6 py-2.5 text-right font-medium sm:table-cell"><HeaderWithHelp help={COLUMN_HELP.backlinks}>Backlinks</HeaderWithHelp></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -100,10 +100,10 @@ export function CompetitorFootprintTable({ workspaceId, domainId, data, analytic
                 return (
                   <React.Fragment key={c.domain}>
                     <tr className={cn("hover:bg-muted/40", isOpen && "bg-muted/30")}>
-                      <td className="px-6 py-2.5">
+                      <td className="px-4 py-2.5 sm:px-6">
                         <span className="flex items-center gap-2">
-                          {i === 0 && <Trophy className="size-3.5 text-amber-500" />}
-                          <span className="font-medium">{c.domain}</span>
+                          {i === 0 && <Trophy className="size-3.5 shrink-0 text-amber-500" />}
+                          <span className="truncate font-medium">{c.domain}</span>
                           {onShowRankings && (
                             <button type="button" onClick={() => onShowRankings(c.domain)}
                               className="rounded border border-border px-1.5 py-px text-xs text-muted-foreground hover:border-primary/40 hover:text-primary"
@@ -113,7 +113,7 @@ export function CompetitorFootprintTable({ workspaceId, domainId, data, analytic
                           )}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">
+                      <td className="hidden px-4 py-2.5 text-right tabular-nums min-[480px]:table-cell">
                         <span className="inline-flex items-center gap-2">
                           <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
                             <span className="block h-full rounded-full bg-primary"
@@ -122,7 +122,7 @@ export function CompetitorFootprintTable({ workspaceId, domainId, data, analytic
                           {c.keywords_shared}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-right">
+                      <td className="hidden px-4 py-2.5 text-right sm:table-cell">
                         <ViewAll count={c.common_keywords} active={isOpen && open?.kind === "common"}
                           onClick={() => toggle(c.domain, "common")} />
                       </td>
@@ -130,12 +130,12 @@ export function CompetitorFootprintTable({ workspaceId, domainId, data, analytic
                         <ViewAll count={c.gap_keywords} active={isOpen && open?.kind === "gap"}
                           onClick={() => toggle(c.domain, "gap")} />
                       </td>
-                      <td className={cn("px-4 py-2.5 text-right font-medium tabular-nums", c.avg_position != null ? posColor(c.avg_position) : "text-muted-foreground")}
+                      <td className={cn("hidden px-4 py-2.5 text-right font-medium tabular-nums sm:table-cell", c.avg_position != null ? posColor(c.avg_position) : "text-muted-foreground")}
                         title={c.avg_position == null ? "Not seen in Google results for your tracked keywords yet" : undefined}>
                         {c.avg_position != null ? `#${c.avg_position}` : "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{s ? compact(s.organic_traffic) : "—"}</td>
-                      <td className="px-6 py-2.5 text-right tabular-nums">{s?.backlinks != null ? compact(s.backlinks) : "—"}</td>
+                      <td className="hidden px-4 py-2.5 text-right tabular-nums sm:table-cell">{s ? compact(s.organic_traffic) : "—"}</td>
+                      <td className="hidden px-6 py-2.5 text-right tabular-nums sm:table-cell">{s?.backlinks != null ? compact(s.backlinks) : "—"}</td>
                     </tr>
                     {isOpen && open && (
                       <tr>
