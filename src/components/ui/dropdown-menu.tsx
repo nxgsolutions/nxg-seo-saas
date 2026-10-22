@@ -1,6 +1,7 @@
 "use client"
 
 import { Menu } from "@base-ui/react/menu"
+import { Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -54,6 +55,31 @@ function DropdownMenuItem({
   )
 }
 
+/** Multi-select item: stays open on click (closeOnClick defaults to false). */
+function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: Menu.CheckboxItem.Props) {
+  return (
+    <Menu.CheckboxItem
+      className={cn(
+        "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+        "data-[highlighted]:bg-muted data-[highlighted]:text-foreground",
+        className
+      )}
+      {...props}
+    >
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <Menu.CheckboxItemIndicator>
+          <Check className="size-4 text-primary" />
+        </Menu.CheckboxItemIndicator>
+      </span>
+      {children}
+    </Menu.CheckboxItem>
+  )
+}
+
 function DropdownMenuLabel({
   className,
   ...props
@@ -88,6 +114,7 @@ export {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
 }

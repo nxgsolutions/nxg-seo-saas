@@ -57,7 +57,7 @@ export const navSections: NavSection[] = [
       // "Save keyword" action in components/keywords/keyword-actions-menu.tsx.
       { label: "Saved Keywords", href: "/dashboard/my-keywords", icon: Bookmark },
       { label: "Competitive Strategy", href: "/dashboard/competitive-strategy", icon: LineChart, match: ["/dashboard/competitors"] },
-      { label: "Action Plan", href: "/dashboard/opportunity-research", icon: TrendingUp },
+      { label: "Opportunity Research", href: "/dashboard/opportunity-research", icon: TrendingUp },
     ],
   },
   {

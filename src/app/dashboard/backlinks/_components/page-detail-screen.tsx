@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
 import { compact } from "../../competitive-strategy/_lib/competitive-strategy-helpers"
 import { DataStatus, FetchButton, Stat } from "./fetch-controls"
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 20
 const date = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString() : "—")
 function authTone(r: number | null | undefined) {
   if (r == null) return "text-muted-foreground"

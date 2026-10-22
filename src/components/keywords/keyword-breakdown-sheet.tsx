@@ -37,11 +37,11 @@ function Country({ code }: { code: string }) {
 const HELP = {
   seoDifficulty: "Estimated difficulty to rank in Google's top 10, 0–100. Lower is easier.",
   intent: "Why people search it: informational (learn), commercial (compare), transactional (buy / sign up), navigational (a specific site).",
-  cpc: "Cost per click: what advertisers pay per click on Google Ads (Google Ads account currency). Higher = more commercial value.",
-  paidDifficulty: "Advertising competition, 0–100 (Google Ads): how many advertisers bid on this keyword.",
-  volume: "Average Google searches per month, with the monthly trend (Google Ads Keyword Planner).",
+  cpc: "Cost per click: what advertisers pay per click. Higher = more commercial value.",
+  paidDifficulty: "Advertising competition, 0–100: how many advertisers bid on this keyword.",
+  volume: "Average Google searches per month, with the monthly trend.",
   result: "The pages ranking on Google for this keyword, from the latest saved results.",
-  visits: "Estimated monthly visits this page gets from this keyword — from the site's rankings when available, otherwise search volume × click-through rate at its position (≈).",
+  visits: "Estimated monthly visits this page gets from this keyword. A ≈ value is our estimate from search volume and rank.",
   authority: "Domain authority, 0–100, based on the site's backlinks. Higher = stronger site.",
   backlinks: "Total links pointing to the whole site.",
   refDomains: "Number of different websites linking to the domain.",
@@ -253,8 +253,7 @@ function MetricsTab({ data, planner }: {
       </div>
 
       <p className="ds-meta">
-        Stored metrics{m.metric_date ? ` from ${new Date(m.metric_date).toLocaleDateString()}` : ""}; gaps filled from Google Ads Keyword Planner.
-        Difficulty and intent are estimates.
+        {m.metric_date ? `Updated ${new Date(m.metric_date).toLocaleDateString()}. ` : ""}Difficulty and intent are estimates.
       </p>
     </div>
   )
@@ -338,7 +337,7 @@ function ResultsTab({ data, workspaceId, onUpdated, competitors, onAddCompetitor
   // expands it to a labelled confirm so re-spending is never a single stray tap.
   const updateButton = confirming ? (
     <div className="flex items-center gap-2">
-      <span className="ds-meta hidden sm:inline">Fetches fresh Google results.</span>
+      <span className="ds-meta hidden sm:inline">Loads the latest Google results.</span>
       <Button size="sm" variant="default" onClick={update} disabled={updating}>
         {updating ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
         Confirm update
@@ -359,15 +358,14 @@ function ResultsTab({ data, workspaceId, onUpdated, competitors, onAddCompetitor
           <Search className="size-7 text-primary" />
         </div>
         <div className="space-y-1.5">
-          <h3 className="font-heading text-xl font-bold tracking-tight">No search results yet</h3>
+          <h3 className="font-heading text-xl font-bold tracking-tight">No results yet</h3>
           <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-            We haven&apos;t pulled Google&apos;s results for <span className="font-medium text-foreground">“{data.keyword}”</span> yet.
-            Fetch them once — they&apos;re saved and reused next time.
+            Load Google&apos;s results for <span className="font-medium text-foreground">“{data.keyword}”</span>.
           </p>
         </div>
         <Button size="lg" onClick={update} disabled={updating || !workspaceId} className="min-w-[200px] shadow-sm">
           {updating ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
-          {updating ? "Fetching results…" : "Fetch results"}
+          {updating ? "Loading…" : "Load results"}
         </Button>
       </div>
     )
@@ -391,12 +389,12 @@ function ResultsTab({ data, workspaceId, onUpdated, competitors, onAddCompetitor
         <Info className="mt-0.5 size-4 shrink-0 text-primary" />
         {s.top10_with_metrics > 0 ? (
           <p>
-            The average top-10 domain here has <strong>{compact(s.avg_backlinks)} backlinks</strong> and an{" "}
-            <strong>authority of {s.avg_authority}</strong>
-            <span className="text-muted-foreground"> (from the {s.top10_with_metrics} of the top 10 sites we have data for).</span>
+            Top sites here average <strong>{compact(s.avg_backlinks)} backlinks</strong> and{" "}
+            <strong>{s.avg_authority} authority</strong>
+            <span className="text-muted-foreground"> (based on {s.top10_with_metrics} of the top 10).</span>
           </p>
         ) : (
-          <p className="text-muted-foreground">Authority and backlinks appear for sites we have data for (your competitors). Visits marked ≈ are our estimate.</p>
+          <p className="text-muted-foreground">Authority and backlinks show for sites we track. A ≈ visit count is an estimate.</p>
         )}
       </div>
 
@@ -442,7 +440,7 @@ function ResultsTab({ data, workspaceId, onUpdated, competitors, onAddCompetitor
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums"
-                  title={r.visits_source === "estimate" ? "Estimate: search volume × CTR at this position" : r.visits_source === "dataforseo" ? "Estimate from the site's rankings" : undefined}>
+                  title={r.visits_source === "estimate" ? "Estimated from search volume and rank" : r.visits_source === "dataforseo" ? "Estimated from this site's rankings" : undefined}>
                   {r.visits == null ? "—" : `${r.visits_source === "estimate" ? "≈" : ""}${compact(r.visits)}`}
                 </td>
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums">{r.authority ?? "—"}</td>

@@ -82,7 +82,7 @@ export function KeywordResults({ detail, workspaceId, domainId }: {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-semibold">Keyword Ideas <span className="text-muted-foreground">{detail.seed_keyword}</span></h3>
-                <p className="text-xs text-muted-foreground">{detail.result_count.toLocaleString()} keywords · Google Autocomplete{detail.seed_metric?.search_volume != null ? " + Ads volume" : ""} · saved</p>
+                <p className="text-xs text-muted-foreground">{detail.result_count.toLocaleString()} keywords · Google Autocomplete{detail.seed_metric?.search_volume != null ? " + search volume" : ""} · saved</p>
               </div>
               <Button variant="outline" size="sm" onClick={exportCsv} disabled={exporting}>
                 {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Export filtered
@@ -117,8 +117,17 @@ export function KeywordResults({ detail, workspaceId, domainId }: {
             {detail.seed_metric?.search_volume == null ? (
               <Alert className="border-sky-500/30 bg-sky-500/5">
                 <Info className="size-4 text-sky-500" />
-                <AlertTitle className="text-sm">Volume, CPC &amp; PD show “—” until Google Ads Keyword Planner is connected</AlertTitle>
-                <AlertDescription className="text-xs">Keyword ideas are saved. Intent and difficulty are estimates. Connect Google Ads to add search volume, bid and advertising competition metrics.</AlertDescription>
+                {detail.ads_available ? (
+                  <>
+                    <AlertTitle className="text-sm">Couldn&apos;t load search volume for this search</AlertTitle>
+                    <AlertDescription className="text-xs">Keyword ideas, intent and difficulty are saved. Run the search again to add search volume, bid and competition.</AlertDescription>
+                  </>
+                ) : (
+                  <>
+                    <AlertTitle className="text-sm">Search volume, CPC &amp; competition aren&apos;t available yet</AlertTitle>
+                    <AlertDescription className="text-xs">Keyword ideas, intent and difficulty are ready. Market metrics will appear once search-volume data is set up for this workspace.</AlertDescription>
+                  </>
+                )}
               </Alert>
             ) : null}
 

@@ -208,19 +208,18 @@ function StatusArea({ screen: s }: { screen: Screen }) {
           <AlertTriangle className="size-4 shrink-0" /> No sitemap found for {s.domain?.domain ?? "your site"}
         </p>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          A sitemap is the fast, reliable way for Google — and us — to find every page.
-          We recommend adding one at <code className="rounded bg-muted px-1 py-0.5 text-xs">/sitemap.xml</code>{" "}
-          (most CMSs and SEO plugins generate it automatically) and listing it in your{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">robots.txt</code>, then scanning again.
+          A sitemap is the fastest way for Google — and us — to find all your pages.
+          Most website builders and SEO plugins add one automatically at{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">/sitemap.xml</code>. Once it&apos;s there, scan again.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          No sitemap yet? We can discover pages by <span className="font-medium text-foreground">crawling</span>{" "}
-          your site — following links from the home page. This is slower and puts more load on your server.
+          No sitemap yet? No problem — we can still find your pages by following the links across your site.
+          It just takes a little longer.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button onClick={() => s.discover.mutate(true)} disabled={s.discover.isPending}>
             {s.discover.isPending ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
-            Crawl the site instead
+            Find my pages anyway
           </Button>
           <Button variant="outline" onClick={() => s.discover.mutate(false)} disabled={s.discover.isPending}>
             <RefreshCw className="size-4" /> Check again for a sitemap
@@ -234,8 +233,8 @@ function StatusArea({ screen: s }: { screen: Screen }) {
       text={`Found ${s.status.pages_found.toLocaleString()} pages from your sitemap.${s.status.truncated ? " (scan limit reached)" : ""}`} />
   }
   if (s.status.source === "crawl") {
-    return <Banner tone="ok" icon={<CheckCircle2 className="size-5" />} title="No sitemap — crawled your site"
-      text={`No sitemap found, so we crawled ${s.status.pages_found.toLocaleString()} pages from your home page.`} />
+    return <Banner tone="ok" icon={<CheckCircle2 className="size-5" />} title="Pages found"
+      text={`No sitemap, so we found ${s.status.pages_found.toLocaleString()} pages by following links across your site.`} />
   }
   return <Banner tone="warn" icon={<AlertTriangle className="size-5" />} title="No pages found" text="We couldn't find any pages. Check the domain is correct and reachable." />
 }

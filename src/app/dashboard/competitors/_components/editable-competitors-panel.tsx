@@ -142,12 +142,23 @@ export function EditableCompetitorsPanel({ domainId }: { domainId: string }) {
                 <Favicon domain={r.competitor} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate font-medium">
+                    <a
+                      href={`https://${r.competitor}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Open ${r.competitor} in a new tab`}
+                      className="truncate font-medium text-primary hover:underline"
+                    >
                       {r.label || r.competitor}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
+                    </a>
+                    <a
+                      href={`https://${r.competitor}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    >
                       {r.competitor}
-                    </span>
+                    </a>
                     {r.source === "manual" ? (
                       <Badge variant="outline" className="text-[10px]">
                         manual

@@ -112,7 +112,11 @@ function Actions({ item, tracked, onTrack, busy, open, onDetails }: {
         <Wand2 className="size-3.5" /> {item.type === "improve" ? "Optimize" : "Write content"}
       </Link>
       {tracked ? (
-        <span className="inline-flex h-7 items-center gap-1 px-2 text-xs text-muted-foreground"><Check className="size-3.5" /> Tracked</span>
+        <Link href="/dashboard/rankings"
+          className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground"
+          title="View in Rank Tracking">
+          <Check className="size-3.5" /> Tracked
+        </Link>
       ) : (
         <Button size="xs" variant="outline" disabled={busy} onClick={() => onTrack(item.keyword)}>
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />} Track
@@ -155,7 +159,9 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
     trackMutation.mutate(keyword, {
       onSuccess: (r) => {
         setTrackedNow((s) => new Set(s).add(keyword.toLowerCase()))
-        toast.success(r.created ? `“${keyword}” added to tracked keywords` : `“${keyword}” is already tracked`)
+        toast.success(r.created ? `“${keyword}” added to Rank Tracking` : `“${keyword}” is already tracked`, {
+          action: { label: "View", onClick: () => { window.location.href = "/dashboard/rankings" } },
+        })
       },
       onError: (err) => toast.error(errorMessage(err, "Could not track the keyword.")),
     })

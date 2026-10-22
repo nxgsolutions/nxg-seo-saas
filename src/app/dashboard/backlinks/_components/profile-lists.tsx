@@ -13,7 +13,7 @@ import { ArrowDownUp, ChevronDown, ExternalLink, FileText, Globe, Link2, Type, U
 import Link from "next/link"
 import * as React from "react"
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 20
 const num = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString())
 const date = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString() : "—")
 

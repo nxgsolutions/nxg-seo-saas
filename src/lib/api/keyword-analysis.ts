@@ -55,6 +55,8 @@ export interface ResearchSummary {
 
 export interface ResearchDetail extends ResearchSummary {
   seed_metric: KeywordMetric | null
+  /** Whether the search-volume/CPC data source is set up for this server. */
+  ads_available: boolean
   questions: string[]
   categories: CategoryCount[]
   results: ResearchResult[]
