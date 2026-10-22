@@ -23,7 +23,8 @@ const HEADER = (
     description="Sites that link to your competitors but not to you — your best prospects for new backlinks." />
 )
 
-export default function LinkGapPage() {
+export default function LinkGapPage({ embedded = false }: { embedded?: boolean }) {
+  const header = embedded ? null : HEADER
   const { activeWorkspace, activeDomain } = useDashboard()
   const workspaceId = activeWorkspace?.id ?? null
   const domainId = activeDomain?.id ?? null
@@ -44,7 +45,7 @@ export default function LinkGapPage() {
     })
   }
 
-  if (!activeDomain) return <div className="space-y-6">{HEADER}<NoDomain what="the link gap" /></div>
+  if (!activeDomain) return <div className="space-y-6">{header}<NoDomain what="the link gap" /></div>
 
   const rows = (data?.domains ?? []).filter((d) => d.competitors_linking >= minCompetitors)
   const cols = data?.run_competitors.length ? data.run_competitors : data?.competitors ?? []
@@ -52,14 +53,14 @@ export default function LinkGapPage() {
 
   return (
     <div className="space-y-6">
-      {HEADER}
+      {header}
       <Card className="overflow-hidden p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
           <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold">{activeDomain.domain} vs competitors</h2>
             </div>
-            {data && <DataStatus state={data} what="link gap" />}
+            {data && <DataStatus state={data} />}
             {data && data.competitors.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 <span className="text-muted-foreground">Comparing:</span>

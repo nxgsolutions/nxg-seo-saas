@@ -21,10 +21,9 @@ import { COLUMN_HELP } from "@/lib/column-help"
 import { downloadCsv } from "@/lib/report/csv"
 import { cn } from "@/lib/utils"
 import {
-  ArrowRight, CalendarClock, Check, ChevronRight, Download, ExternalLink, FileSearch, LayoutList, Loader2, Mountain,
-  PenLine, Plus, Sparkles, Swords, Table2, Target, TrendingUp, Wand2, X, Zap,
+  ArrowRight, Check, Download, ExternalLink, FileSearch, Loader2,
+  PenLine, Plus, Sparkles, Swords, TrendingUp, Wand2,
 } from "lucide-react"
-import { Dialog } from "@base-ui/react/dialog"
 import Link from "next/link"
 import * as React from "react"
 import { toast } from "sonner"
@@ -41,24 +40,6 @@ const TYPE_META: Record<ActionType, { label: string; icon: typeof TrendingUp; cl
 }
 const PAGE_SIZE = 15
 const num = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString())
-
-/** Effort lanes for the Simple view — how hard each action is, in plain terms. */
-type Effort = "quick" | "month" | "bet"
-const effortOf = (i: ActionItem): Effort => {
-  const kd = i.difficulty ?? 0
-  if (i.type === "improve" || kd < 30) return "quick" // already ranking, or easy
-  if (kd >= 55) return "bet"
-  return "month"
-}
-const EFFORT_META: Record<Effort, { label: string; desc: string; icon: typeof Zap; className: string }> = {
-  quick: { label: "Quick wins", desc: "Do this week — easy, fast ranking gains", icon: Zap,
-    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
-  month: { label: "This month", desc: "Medium effort — new or stronger pages", icon: CalendarClock,
-    className: "bg-sky-500/10 text-sky-700 dark:text-sky-400" },
-  bet: { label: "Bigger bets", desc: "High effort — build authority first", icon: Mountain,
-    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
-}
-const EFFORT_ORDER: Effort[] = ["quick", "month", "bet"]
 
 function TypeBadge({ type }: { type: ActionType }) {
   const m = TYPE_META[type]
@@ -141,109 +122,20 @@ function Actions({ item, tracked, onTrack, busy, open, onDetails }: {
   )
 }
 
-/** One labelled metric for the solution sheet (label above, value below). */
-function SheetMetric({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-border bg-muted/30 px-3 py-2.5">
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm font-semibold tabular-nums">{children}</dd>
-    </div>
-  )
-}
-
-/**
- * Side sheet showing one keyword's full "solution": its metrics, why it matters,
- * the next-step actions, and the InsightPanel (your page vs the competitor pages
- * that rank, with content suggestions). Opened by clicking a card in Simple view.
- */
-function KeywordSolutionSheet({ item, wid, did, tracked, busy, onTrack, onClose }: {
-  item: ActionItem | null; wid: string; did: string; tracked: boolean; busy: boolean
-  onTrack: (keyword: string) => void; onClose: () => void
-}) {
-  return (
-    <Dialog.Root open={!!item} onOpenChange={(open) => { if (!open) onClose() }}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-        <Dialog.Popup className="dashboard-shell fixed inset-y-0 right-0 z-50 flex w-full max-w-[min(42rem,100vw)] flex-col border-l border-border bg-card shadow-2xl outline-none transition-transform duration-200 data-[ending-style]:translate-x-full data-[starting-style]:translate-x-full">
-          {item && (() => {
-            const pageLink = item.type === "improve" ? item.url : item.type === "gap" ? item.competitor_url : null
-            const href = contentOptimizationHref(item.keyword, item.type === "improve" ? item.url : null)
-            return (
-              <>
-                <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
-                  <div className="min-w-0 space-y-2">
-                    <Dialog.Title className="font-heading text-lg font-bold tracking-tight">Keyword solution</Dialog.Title>
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <TypeBadge type={item.type} />
-                      <span className="truncate text-base font-semibold text-primary">{item.keyword}</span>
-                    </div>
-                  </div>
-                  <Dialog.Close render={<Button variant="ghost" size="icon" />} aria-label="Close solution"><X /></Dialog.Close>
-                </div>
-
-                <div className="scroll-pane min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
-                  <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <SheetMetric label="Volume">{num(item.volume)}</SheetMetric>
-                    <SheetMetric label="Difficulty"><Kd kd={item.difficulty} /></SheetMetric>
-                    <SheetMetric label="Your position">
-                      {item.type === "improve" ? <PosPill pos={item.position} /> : <span className="text-muted-foreground">—</span>}
-                    </SheetMetric>
-                    <SheetMetric label="Potential"><span className="text-primary">+{num(item.gain)}<span className="text-[11px] font-normal text-muted-foreground">/mo</span></span></SheetMetric>
-                  </dl>
-
-                  {item.reason && (
-                    <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground">Why this matters: </span>{item.reason}
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2">
-                    <Link href={href} className={buttonVariants({ size: "sm" })}>
-                      <Wand2 className="size-4" /> {item.type === "improve" ? "Optimize this page" : "Write content"}
-                    </Link>
-                    {pageLink && (
-                      <a href={pageLink} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", size: "sm" })}>
-                        {item.type === "improve" ? <PenLine className="size-4" /> : <ExternalLink className="size-4" />}
-                        {item.type === "improve" ? "Your page" : "Their page"}
-                      </a>
-                    )}
-                    {tracked ? (
-                      <span className="inline-flex h-8 items-center gap-1 px-2 text-xs text-muted-foreground"><Check className="size-4" /> Tracked</span>
-                    ) : (
-                      <Button size="sm" variant="outline" disabled={busy} onClick={() => onTrack(item.keyword)}>
-                        {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Track
-                      </Button>
-                    )}
-                  </div>
-
-                  <InsightPanel wid={wid} did={did} item={item} />
-                </div>
-              </>
-            )
-          })()}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
-  )
-}
-
 /**
  * Opportunity Research — the action plan: what to do next, prioritized, from
  * data already stored (Search Console, your rankings, competitor rankings,
  * keyword research). No paid API calls.
  */
 export function ActionPlan({ wid, did }: { wid: string; did: string }) {
-  const [mode, setMode] = React.useState<"simple" | "detailed">("simple")
   const [view, setView] = React.useState<View>("top")
   const [q, setQ] = React.useState("")
   const debouncedQ = useDebouncedValue(q)
   const [page, setPage] = React.useState(1)
   const [exporting, setExporting] = React.useState(false)
   const [trackedNow, setTrackedNow] = React.useState<Set<string>>(new Set())
-  // The one action whose Details panel is open (type:keyword) — Detailed view.
+  // The one action whose Details panel is open (type:keyword).
   const [openKey, setOpenKey] = React.useState<string | null>(null)
-  // The action whose solution sheet is open (Simple view: click a card).
-  const [solutionItem, setSolutionItem] = React.useState<ActionItem | null>(null)
   const toggle = (i: ActionItem) => setOpenKey((k) => (k === `${i.type}:${i.keyword}` ? null : `${i.type}:${i.keyword}`))
   const isOpen = (i: ActionItem) => openKey === `${i.type}:${i.keyword}`
 
@@ -279,7 +171,7 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
 
   const s = data.sources
   const pageRows = items.data?.rows ?? []
-  const pick = (v: View) => { setMode("detailed"); setView(v); setPage(1); setQ("") }
+  const pick = (v: View) => { setView(v); setPage(1); setQ("") }
 
   /** One action row, shared by the Detailed "Top" list and the Simple effort
    *  lanes so both read identically. `rank` shows the numbered badge (Top list). */
@@ -321,29 +213,6 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
     </li>
   )
 
-  /** A compact, clickable keyword card for the Simple view's effort lanes.
-   *  Clicking opens the solution sheet for that keyword. */
-  const renderCard = (i: ActionItem) => (
-    <button key={`${i.type}:${i.keyword}`} type="button" onClick={() => setSolutionItem(i)}
-      className="group flex h-full flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-      <div className="flex items-center justify-between gap-2">
-        <TypeBadge type={i.type} />
-        {isTracked(i) ? <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><Check className="size-3" /> Tracked</span> : null}
-      </div>
-      <p className="ds-item line-clamp-2" title={i.keyword}>{i.keyword}</p>
-      <div className="mt-auto flex items-end justify-between gap-2 pt-1">
-        <dl className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1"><span>Vol</span><span className="font-medium tabular-nums text-foreground">{num(i.volume)}</span></div>
-          <Kd kd={i.difficulty} />
-          {i.type === "improve" && <PosPill pos={i.position} />}
-        </dl>
-        <span className="text-sm font-semibold tabular-nums text-primary">+{num(i.gain)}<span className="text-[11px] font-normal text-muted-foreground">/mo</span></span>
-      </div>
-      <span className="flex items-center gap-1 text-xs font-medium text-primary">
-        View solution <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-      </span>
-    </button>
-  )
   const key = `${wid}:${did}`
 
   /** Top 10, or every row of the open list (fetched in big pages), as CSV. */
@@ -451,28 +320,8 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
 
       <Card>
         <CardContent className="space-y-4 pt-6">
-          {/* Simple / Detailed toggle + export */}
+          {/* Which list to show + export */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex gap-1 rounded-lg border border-border p-0.5 text-xs">
-              {([["simple", "Simple", LayoutList], ["detailed", "Detailed", Table2]] as const).map(([m, label, Icon]) => (
-                <button key={m} type="button"
-                  onClick={() => { setMode(m); if (m === "simple") { setView("top"); setQ("") } }}
-                  className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium transition-colors",
-                    mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  <Icon className="size-3.5" aria-hidden="true" /> {label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              {mode === "detailed" && view !== "top" && <SearchInput value={q} onValueChange={setQ} placeholder="Filter keywords…" className="w-52" />}
-              <Button variant="outline" size="sm" onClick={exportCsv} disabled={exporting}>
-                {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Export
-              </Button>
-            </div>
-          </div>
-
-          {/* Detailed-only: which list to show */}
-          {mode === "detailed" && (
             <div className="flex flex-wrap gap-1 rounded-lg border border-border p-0.5 text-xs">
               {([["top", "Top 10"], ["improve", `Improve (${data.counts.improve})`],
                 ["gaps", `Competitor gaps (${data.counts.gaps})`], ["targets", `New targets (${data.counts.targets})`]] as const)
@@ -484,7 +333,13 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
                   </button>
                 ))}
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              {view !== "top" && <SearchInput value={q} onValueChange={setQ} placeholder="Filter keywords…" className="w-52" />}
+              <Button variant="outline" size="sm" onClick={exportCsv} disabled={exporting}>
+                {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Export
+              </Button>
+            </div>
+          </div>
 
           {data.top.length === 0 ? (
             <div className="mx-auto max-w-md py-10 text-center">
@@ -505,77 +360,6 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
                   </Link>
                 ))}
               </div>
-            </div>
-          ) : mode === "simple" ? (
-            <div className="space-y-5">
-              {/* Hero — the single highest-impact move, in plain language. */}
-              {(() => {
-                const hero = data.top[0]
-                const href = contentOptimizationHref(hero.keyword, hero.type === "improve" ? hero.url : null)
-                return (
-                  <div className="rounded-xl border border-primary/30 bg-primary/[0.04] p-5">
-                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-                      <Target className="size-4" aria-hidden="true" /> Your #1 move this week
-                    </div>
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="min-w-[240px] flex-1 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <TypeBadge type={hero.type} />
-                          <span className="text-lg font-semibold">{hero.keyword}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{hero.reason}</p>
-                        <dl className="flex flex-wrap gap-6 pt-1">
-                          <Metric label="Volume" width="w-auto">{num(hero.volume)}</Metric>
-                          <Metric label="Difficulty" width="w-auto"><Kd kd={hero.difficulty} /></Metric>
-                          {hero.type === "improve" && <Metric label="Your pos." width="w-auto"><PosPill pos={hero.position} /></Metric>}
-                          <Metric label="Potential" width="w-auto" highlight>
-                            +{num(hero.gain)}<span className="text-[11px] font-normal text-muted-foreground">/mo</span>
-                          </Metric>
-                        </dl>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-2">
-                        <Link href={href} className={buttonVariants({ size: "sm" })}>
-                          <Wand2 className="size-4" /> {hero.type === "improve" ? "Optimize this page" : "Write content"}
-                        </Link>
-                        <Actions item={hero} tracked={isTracked(hero)} onTrack={track} busy={tracking === hero.keyword}
-                          open={false} onDetails={() => setSolutionItem(hero)} />
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* Effort lanes — quick wins first, bigger bets last. */}
-              {EFFORT_ORDER.map((eff) => {
-                const meta = EFFORT_META[eff]
-                const laneItems = data.top.slice(1).filter((i) => effortOf(i) === eff)
-                if (laneItems.length === 0) return null
-                return (
-                  <div key={eff} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("inline-flex size-7 items-center justify-center rounded-lg", meta.className)}>
-                        <meta.icon className="size-4" aria-hidden="true" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold leading-tight">
-                          {meta.label} <span className="font-normal text-muted-foreground">· {laneItems.length}</span>
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">{meta.desc}</p>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {laneItems.map((i) => renderCard(i))}
-                    </div>
-                  </div>
-                )
-              })}
-
-              <p className="text-xs text-muted-foreground">
-                Showing your top {data.top.length} priorities.{" "}
-                <button type="button" onClick={() => pick("improve")} className="font-medium text-primary hover:underline">
-                  See all {num(data.counts.improve + data.counts.gaps + data.counts.targets)} in Detailed view
-                </button>.
-              </p>
             </div>
           ) : view === "top" ? (
             <ol className="divide-y divide-border overflow-hidden rounded-xl border border-border">
@@ -636,15 +420,6 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
           )}
         </CardContent>
       </Card>
-
-      {/* Click a card → the keyword's full solution in a side sheet. */}
-      <KeywordSolutionSheet
-        item={solutionItem} wid={wid} did={did}
-        tracked={solutionItem ? isTracked(solutionItem) : false}
-        busy={!!solutionItem && tracking === solutionItem.keyword}
-        onTrack={track}
-        onClose={() => setSolutionItem(null)}
-      />
     </div>
   )
 }

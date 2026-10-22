@@ -45,6 +45,10 @@ export interface AuditMetrics {
   has_favicon?: boolean
   hreflang_count?: number
   h2_count?: number
+  // Page speed (present on newer audits): where the speed check's verdict came
+  // from, and the real Core Web Vitals when PSI was used.
+  speed_source?: "psi" | "fetch"
+  core_web_vitals?: PsiResult | null
 }
 
 export interface AuditResult {

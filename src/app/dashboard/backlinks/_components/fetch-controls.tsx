@@ -19,19 +19,18 @@ export interface FetchState {
 export const usd = (n: number) => (n > 0 ? `~$${n.toFixed(n < 0.1 ? 3 : 2)}` : "free")
 
 
-/** "Data saved · fetched 3d ago · cost $0.11" or "No data yet". */
-export function DataStatus({ state, what }: { state: FetchState; what: string }) {
+/** Freshness only, in user terms: "Updated 3d ago" or "No data yet". */
+export function DataStatus({ state }: { state: FetchState }) {
   return state.fetched_at ? (
     <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
       <span className="size-2 rounded-full bg-emerald-500" />
-      <span className="font-medium text-emerald-700 dark:text-emerald-400">Data saved</span>
-      · fetched {timeAgo(state.fetched_at)}
-      {/* Cost is kept out of the UI: state.cost has the provider-reported USD of this fetch. */}
+      Updated {timeAgo(state.fetched_at)}
+      {/* Internal details (that data is cached, the provider-reported cost in state.cost) are deliberately not shown. */}
     </p>
   ) : (
     <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <span className="size-2 rounded-full bg-amber-500" />
-      <span className="font-medium text-amber-700 dark:text-amber-400">No data yet</span> · {what} not fetched
+      <span className="font-medium text-amber-700 dark:text-amber-400">No data yet</span>
     </p>
   )
 }

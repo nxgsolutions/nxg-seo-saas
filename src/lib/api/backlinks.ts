@@ -6,7 +6,7 @@
  * reused unless `force`).
  */
 import { apiClient } from "./client"
-import { listParams, type ListParams, type Paged } from "./pagination"
+import { listParams, type ListParams, type Paged, type PageInfo } from "./pagination"
 
 export interface BacklinkSummary {
   rank: number | null
@@ -132,7 +132,7 @@ export interface BacklinkDetails {
   } | null
 }
 
-export type BacklinkList = "domains" | "links" | "anchors" | "pages"
+export type BacklinkList = "domains" | "links" | "anchors" | "pages" | "reclaim"
 
 export interface LinkedPageRow {
   url: string
@@ -143,6 +143,14 @@ export interface LinkedPageRow {
   anchors: string[]
 }
 
+/** A dead page on your site that still has backlinks pointing at it. */
+export interface ReclaimPageRow extends LinkedPageRow {
+  /** Fix-first score: dofollow (or total) links × strongest linking domain. */
+  priority: number
+  first_seen: string | null
+  last_seen: string | null
+}
+
 export type DomainListRow = ReferringDomainRow & { dofollow_backlinks: number | null }
 
 export interface BacklinkRowsMap {
@@ -150,6 +158,54 @@ export interface BacklinkRowsMap {
   links: BacklinkRow
   anchors: AnchorRow
   pages: LinkedPageRow
+  reclaim: ReclaimPageRow
+}
+
+// ── Analytics (Overview dashboard) ──────────────────────────────────────────
+export interface TrendPoint { fetched_at: string; rank: number | null; backlinks: number | null; referring_domains: number | null; spam_score: number | null }
+export interface NewLostSummary {
+  since: string | null
+  backlinks_delta: number | null; referring_domains_delta: number | null; rank_delta: number | null
+  new_links: number; lost_links: number; broken_links: number
+  gained_domains: string[]; lost_domains: string[]
+}
+export interface AnchorClass { label: string; count: number; share: number }
+export interface AnchorMix { total: number; classes: AnchorClass[]; over_optimized: boolean }
+export interface DiversitySignals {
+  referring_domains: number | null; referring_ips: number | null
+  dofollow_share: number | null; spammy_share: number | null; links_per_domain: number | null
+  concentrated: boolean; shared_ips: boolean
+  top_tlds: BreakdownItem[]; top_countries: BreakdownItem[]
+}
+export interface BacklinkAnalytics {
+  target: string
+  trend: TrendPoint[]
+  new_lost: NewLostSummary | null
+  anchors: AnchorMix | null
+  diversity: DiversitySignals | null
+}
+
+// ── Entity drill-down (site / page) ─────────────────────────────────────────
+export interface SiteDetailSummary {
+  host: string; authority: number | null; spam_score: number | null
+  links_to_you: number; dofollow_links: number
+  first_seen: string | null; last_seen: string | null; complete: boolean
+}
+export interface PresencePoint { fetched_at: string; present: boolean; links: number }
+export interface ReferringSiteDetail extends FetchMeta {
+  target: string; host: string; found: boolean
+  summary: SiteDetailSummary | null
+  links: BacklinkRow[]; pagination: PageInfo; presence: PresencePoint[]; complete: boolean
+}
+export interface PageDetailSummary {
+  url: string; status: "live" | "broken"; links: number; linking_sites: number; dofollow: number
+  best_authority: number | null; first_seen: string | null; last_seen: string | null
+  suggested_fix: string | null; complete: boolean
+}
+export interface LinkedPageDetail extends FetchMeta {
+  target: string; url: string; found: boolean
+  summary: PageDetailSummary | null
+  links: BacklinkRow[]; pagination: PageInfo; complete: boolean
 }
 
 const base = (wid: string, did: string) => `/api/workspaces/${wid}/domains/${did}/backlinks`
@@ -173,4 +229,26 @@ export const backlinksApi = {
   gap: (wid: string, did: string) => apiClient.get<LinkGap>(`${base(wid, did)}/gap`),
   refreshGap: (wid: string, did: string, force: boolean) =>
     apiClient.post<LinkGap>(`${base(wid, did)}/gap/refresh?force=${force}`, {}),
+
+  /** Overview dashboard: trend, new/lost, anchor classification, quality (saved data). */
+  analytics: (wid: string, did: string, target?: string | null) =>
+    apiClient.get<BacklinkAnalytics>(`${base(wid, did)}/analytics`, { params: target ? { target } : {} }),
+
+  /** One referring site's links to you (saved subset, or complete after Load all links). */
+  siteDetail: (wid: string, did: string, host: string, target: string | null, p: ListParams) =>
+    apiClient.get<ReferringSiteDetail>(`${base(wid, did)}/profile/site`,
+      { params: listParams(p, { host, target: target ?? undefined }) }),
+  refreshSite: (wid: string, did: string, host: string, target: string | null, force: boolean) =>
+    apiClient.post<ReferringSiteDetail>(`${base(wid, did)}/profile/site/refresh?host=${encodeURIComponent(host)}&${q(target)}&force=${force}`, {}),
+
+  /** Every site linking to one page (saved subset, or complete after Load all links). */
+  pageDetail: (wid: string, did: string, url: string, target: string | null, p: ListParams) =>
+    apiClient.get<LinkedPageDetail>(`${base(wid, did)}/profile/page`,
+      { params: listParams(p, { url, target: target ?? undefined }) }),
+  refreshPage: (wid: string, did: string, url: string, target: string | null, force: boolean) =>
+    apiClient.post<LinkedPageDetail>(`${base(wid, did)}/profile/page/refresh?url=${encodeURIComponent(url)}&${q(target)}&force=${force}`, {}),
+
+  /** CSV download URL for a stored list (opened directly; no JSON). */
+  exportUrl: (wid: string, did: string, list: BacklinkList, target: string | null, filter: string) =>
+    `${base(wid, did)}/export?list=${list}&filter=${filter}${target ? `&${q(target)}` : ""}`,
 }

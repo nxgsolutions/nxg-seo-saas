@@ -10,17 +10,56 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { ArrowRight, Gauge, Globe, Loader2, Plus, Settings2, Trash2 } from "lucide-react"
+import { ArrowRight, Gauge, Globe, Loader2, Plus, Settings2, Tag, Trash2 } from "lucide-react"
 import * as React from "react"
 import type { Domain } from "@/lib/api/workspaces"
 import { DeleteDomainDialog } from "./delete-domain-dialog"
 import { EditDomainDialog } from "./edit-domain-dialog"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
+import { useCategories } from "@/hooks/api/use-categories"
 import { useDomainsScreen } from "../_hooks/use-domains-screen"
 
+/** Industry-category chip. Shows the detected category, or a "Detecting…" state
+ * while the background auto-detection resolves for a freshly added domain. */
+function CategoryChip({ categoryId, detecting, nameOf }: {
+  categoryId: string | null
+  detecting: boolean
+  nameOf: (id: string) => string | undefined
+}) {
+  if (categoryId) {
+    const name = nameOf(categoryId)
+    if (!name) return null
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-px text-xs font-medium text-muted-foreground">
+        <Tag className="size-3" /> {name}
+      </span>
+    )
+  }
+  if (detecting) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-px text-xs font-medium text-muted-foreground">
+        <Loader2 className="size-3 animate-spin" /> Detecting category…
+      </span>
+    )
+  }
+  // No category and nothing being detected: show it as "Uncategorized" (null is
+  // the uncategorized state) rather than a blank space, so the domain always
+  // reads a definite category. Auto-detect, when it resolves, replaces this.
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-px text-xs font-medium text-muted-foreground">
+      <Tag className="size-3" /> Uncategorized
+    </span>
+  )
+}
+
 export default function DomainsPage() {
-  const { activeWorkspace, activeDomain, setActiveDomainId, canDelete, domains, loading, newSite, setNewSite, adding, error, setError, addDomain } = useDomainsScreen()
+  const { activeWorkspace, activeDomain, setActiveDomainId, canDelete, domains, loading, newSite, setNewSite, adding, error, setError, addDomain, detecting } = useDomainsScreen()
+  const { data: categories = [] } = useCategories()
+  const nameOf = React.useCallback(
+    (id: string) => categories.find((c) => c.id === id)?.name,
+    [categories],
+  )
 
   const [deleting, setDeleting] = React.useState<Domain | null>(null)
   const [editing, setEditing] = React.useState<Domain | null>(null)
@@ -102,11 +141,12 @@ export default function DomainsPage() {
                       <Globe className="size-4 text-muted-foreground" />
                     </span>
                     <span className="min-w-0">
-                      <span className="flex items-center gap-2">
+                      <span className="flex flex-wrap items-center gap-2">
                         <span className="truncate text-sm font-medium">{w.name}</span>
                         {w.id === activeDomain?.id && (
                           <span className="shrink-0 rounded-full bg-primary/10 px-2 py-px text-xs font-medium text-primary">Current</span>
                         )}
+                        <CategoryChip categoryId={w.category_id} detecting={detecting.includes(w.id)} nameOf={nameOf} />
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
                         {w.domain}

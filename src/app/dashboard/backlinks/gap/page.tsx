@@ -1,5 +1,5 @@
-import LinkGapPage from "../_components/link-gap-screen"
+import OpportunitiesScreen from "../_components/opportunities-screen"
 
 export default function Page() {
-  return <LinkGapPage />
+  return <OpportunitiesScreen />
 }

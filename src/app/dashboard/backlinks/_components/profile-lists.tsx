@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useBacklinkRows } from "@/hooks/api/use-backlinks"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
-import type { AnchorRow, BacklinkList, BacklinkRow, DomainListRow, LinkedPageRow } from "@/lib/api/backlinks"
+import type { AnchorRow, BacklinkList, BacklinkRow, DomainListRow, LinkedPageRow, ReclaimPageRow } from "@/lib/api/backlinks"
 import { cn } from "@/lib/utils"
-import { ArrowDownUp, ChevronDown, ExternalLink, FileText, Globe, Link2, Type } from "lucide-react"
+import { ArrowDownUp, ChevronDown, ExternalLink, FileText, Globe, Link2, Type, Unlink } from "lucide-react"
+import Link from "next/link"
 import * as React from "react"
 
 const PAGE_SIZE = 25
@@ -28,6 +29,7 @@ const FILTERS: Record<BacklinkList, { value: string; label: string }[]> = {
     { value: "new", label: "New" }, { value: "lost", label: "Lost" }, { value: "broken", label: "Broken" }],
   anchors: [{ value: "all", label: "All anchor texts" }],
   pages: [{ value: "all", label: "All your pages" }],
+  reclaim: [{ value: "all", label: "All broken pages" }],
 }
 
 type Sort = { key: string | null; desc: boolean }
@@ -103,16 +105,22 @@ function LinkRow({ l }: { l: BacklinkRow }) {
 }
 
 /** Referring domains · backlinks · anchors · your linked pages — server-paged with search, filter and sort. */
-export function ProfileLists({ wid, did, target, counts }: {
-  wid: string; did: string; target: string | null
-  counts: { domains: number; links: number; anchors: number }
+export function ProfileLists({ wid, did, target, isYou, counts, lists }: {
+  wid: string; did: string; target: string | null; isYou: boolean
+  counts: { domains: number; links: number; anchors: number; reclaim: number }
+  /** Which list tabs to show (default all). Reclaim is always own-site only. */
+  lists?: BacklinkList[]
 }) {
-  const [list, setList] = React.useState<BacklinkList>("domains")
+  const available = (lists ?? ["domains", "links", "anchors", "pages", "reclaim"]).filter((l) => l !== "reclaim" || isYou)
+  const [list, setList] = React.useState<BacklinkList>(available[0] ?? "domains")
   const [filter, setFilter] = React.useState("all")
   const [search, setSearch] = React.useState("")
   const q = useDebouncedValue(search.trim(), 300)
   const [sort, setSort] = React.useState<Sort>({ key: null, desc: true })
   const [page, setPage] = React.useState(1)
+
+  // Current list no longer available (e.g. a competitor hides Broken links) → fall back.
+  if (!available.includes(list)) setList(available[0] ?? "domains")
 
   // New list / target → reset the controls; new search / filter / sort → page 1 (adjusted during render).
   const listKey = `${list}|${target}`
@@ -128,6 +136,9 @@ export function ProfileLists({ wid, did, target, counts }: {
     setPage(1)
   }
 
+  const siteHref = (host: string) => `/dashboard/backlinks/site?host=${encodeURIComponent(host)}${target ? `&target=${encodeURIComponent(target)}` : ""}`
+  const pageHref = (url: string) => `/dashboard/backlinks/page?url=${encodeURIComponent(url)}${target ? `&target=${encodeURIComponent(target)}` : ""}`
+
   const query = useBacklinkRows(wid, did, list, target, { page, pageSize: PAGE_SIZE, q, sort: sort.key, desc: sort.desc }, filter)
   const rows = query.data?.rows ?? []
   const loading = query.isPending
@@ -137,12 +148,16 @@ export function ProfileLists({ wid, did, target, counts }: {
   return (
     <section className="rounded-2xl border bg-card shadow-xs" aria-label="Backlink lists">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-        <SegmentedTabs<BacklinkList> value={list} onChange={setList} label="Lists" items={[
-          { value: "domains", label: "Linking sites", icon: Globe, count: counts.domains },
-          { value: "links", label: "Backlinks", icon: Link2, count: counts.links },
-          { value: "anchors", label: "Anchor texts", icon: Type, count: counts.anchors },
-          { value: "pages", label: "Your linked pages", icon: FileText },
-        ]} />
+        {available.length > 1 && (
+          <SegmentedTabs<BacklinkList> value={list} onChange={setList} label="Lists"
+            items={available.map((l) => ({
+              domains: { value: "domains" as const, label: "Linking sites", icon: Globe, count: counts.domains },
+              links: { value: "links" as const, label: "Backlinks", icon: Link2, count: counts.links },
+              anchors: { value: "anchors" as const, label: "Anchor texts", icon: Type, count: counts.anchors },
+              pages: { value: "pages" as const, label: "Your linked pages", icon: FileText },
+              reclaim: { value: "reclaim" as const, label: "Broken links", icon: Unlink, count: counts.reclaim },
+            }[l]))} />
+        )}
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <SearchInput value={search} onValueChange={setSearch} placeholder="Search…" className="min-w-[180px] flex-1 sm:w-56" />
           {filters.length > 1 && (
@@ -176,8 +191,9 @@ export function ProfileLists({ wid, did, target, counts }: {
                   {(rows as DomainListRow[]).map((r) => (
                     <tr key={r.domain} className="hover:bg-muted/40">
                       <td className="px-4 py-2">
-                        <a href={`https://${r.domain}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
-                          {r.domain}<ExternalLink className="size-3" />
+                        <Link href={siteHref(r.domain)} className="font-medium text-primary hover:underline">{r.domain}</Link>
+                        <a href={`https://${r.domain}`} target="_blank" rel="noopener noreferrer" className="ml-1.5 inline-flex text-muted-foreground hover:text-foreground" aria-label="Open site">
+                          <ExternalLink className="size-3" />
                         </a>
                         {r.lost_date && <span className="ml-2 rounded bg-destructive/10 px-1 text-xs text-destructive">lost {date(r.lost_date)}</span>}
                       </td>
@@ -239,7 +255,7 @@ export function ProfileLists({ wid, did, target, counts }: {
                   {(rows as LinkedPageRow[]).map((p) => (
                     <tr key={p.url} className="align-top hover:bg-muted/40">
                       <td className="max-w-[420px] px-4 py-2">
-                        <a href={p.url} target="_blank" rel="noopener noreferrer" className="block truncate font-medium text-primary hover:underline" title={p.url}>{p.url.replace(/^https?:\/\//, "")}</a>
+                        <Link href={pageHref(p.url)} className="block truncate font-medium text-primary hover:underline" title={p.url}>{p.url.replace(/^https?:\/\//, "")}</Link>
                         {p.anchors.length > 0 && <span className="block truncate text-xs text-muted-foreground">Anchors: {p.anchors.map((a) => `“${a}”`).join(", ")}</span>}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{num(p.links)}</td>
@@ -251,13 +267,44 @@ export function ProfileLists({ wid, did, target, counts }: {
                 </tbody>
               </table>
             )}
+            {list === "reclaim" && (
+              <table className="w-full min-w-[720px] text-sm">
+                <thead><tr className="border-b text-left text-xs text-muted-foreground">
+                  <Th label="Dead page on your site" sort={sort} setSort={setSort} className="px-4" />
+                  <Th k="links" label="Lost links" sort={sort} setSort={setSort} className="text-right" />
+                  <Th k="domains" label="Linking sites" sort={sort} setSort={setSort} className="text-right" />
+                  <Th k="authority" label="Best authority" sort={sort} setSort={setSort} className="text-right" />
+                  <Th k="last_seen" label="Last seen" sort={sort} setSort={setSort} className="text-right" />
+                  <th className="px-4 py-2 font-medium">Suggested fix</th>
+                </tr></thead>
+                <tbody className="divide-y">
+                  {(rows as ReclaimPageRow[]).map((p) => (
+                    <tr key={p.url} className="align-top hover:bg-muted/40">
+                      <td className="max-w-[420px] px-4 py-2">
+                        <Link href={pageHref(p.url)} className="block truncate font-medium text-primary hover:underline" title={p.url}>{p.url.replace(/^https?:\/\//, "")}</Link>
+                        {p.anchors.length > 0 && <span className="block truncate text-xs text-muted-foreground">Anchors: {p.anchors.map((a) => `“${a}”`).join(", ")}</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{num(p.links)}{p.dofollow > 0 && <span className="ml-1 text-xs text-emerald-600 dark:text-emerald-400">({p.dofollow} dofollow)</span>}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{num(p.domains)}</td>
+                      <td className={cn("px-3 py-2 text-right font-semibold tabular-nums", authTone(p.best_authority))}>{p.best_authority ?? "—"}</td>
+                      <td className="px-3 py-2 text-right text-xs text-muted-foreground">{date(p.last_seen)}</td>
+                      <td className="px-4 py-2 text-xs text-muted-foreground">
+                        {p.dofollow > 0 ? "Restore this page or 301-redirect it to the closest live page." : "301-redirect to the closest live page."}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>
       <Pager className="border-t px-4 py-1.5" pagination={query.data?.pagination} onPageChange={setPage} fetching={fetching}
-        noun={list === "domains" ? "linking sites" : list === "links" ? "backlinks" : list === "anchors" ? "anchor texts" : "pages"} />
+        noun={list === "domains" ? "linking sites" : list === "links" ? "backlinks" : list === "anchors" ? "anchor texts" : list === "reclaim" ? "broken pages" : "pages"} />
       <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-        {list === "links" || list === "pages"
+        {list === "reclaim"
+          ? "Pages on your site that still have backlinks but no longer load — from the saved backlinks, so the real total may be higher. Fix the highest-authority ones first."
+          : list === "links" || list === "pages"
           ? "From the saved strongest backlinks (one per linking site)."
           : list === "domains" ? "The strongest linking sites saved in the last fetch." : "The most-used anchor texts saved in the last fetch."}
       </p>

@@ -60,13 +60,21 @@ function LabTile({ label, value }: { label: string; value: string | null }) {
 export function CoreWebVitals({
   url,
   strategy,
+  initial = null,
 }: {
   url: string
   strategy: "mobile" | "desktop"
+  /** Core Web Vitals already captured by the audit; shown without a re-fetch. */
+  initial?: PsiResult | null
 }) {
   const [running, setRunning] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [result, setResult] = React.useState<PsiResult | null>(null)
+  const [result, setResult] = React.useState<PsiResult | null>(initial)
+  // Reset to the audit's stored data when a different audit is opened.
+  React.useEffect(() => {
+    setResult(initial)
+    setError(null)
+  }, [initial])
 
   async function run() {
     setError(null)

@@ -3,13 +3,17 @@
 import { IntegrationsPanel } from "@/components/dashboard/integrations-panel"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { CreateWorkspaceDialog } from "@/components/dashboard/create-workspace-dialog"
+import { CategorySelect } from "@/components/dashboard/category-select"
+import { useDashboard } from "@/components/dashboard/dashboard-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Check, Globe, Loader2, Plus, Settings2, SlidersHorizontal, User } from "lucide-react"
+import { Check, Globe, Loader2, Plus, Settings2, SlidersHorizontal, Tag, User } from "lucide-react"
 import * as React from "react"
+import { toast } from "sonner"
+import { workspacesApi } from "@/lib/api/workspaces"
 import { useSettingsScreen } from "../_hooks/use-settings-screen"
 import { COUNTRIES, LANGUAGES, TIMEZONES, labelFor } from "../_lib/settings-helpers"
 
@@ -70,6 +74,9 @@ export default function SettingsPage() {
         </form>
       </Section>
 
+      {/* Domain category (active site) */}
+      <DomainCategorySection />
+
       {/* Create workspace */}
       <Section icon={Plus} title="Create a workspace"
         description="Use one workspace per business or client. Each has its own domains, team and reports — switch between them from the top of the sidebar.">
@@ -87,6 +94,64 @@ export default function SettingsPage() {
         </div>
       </Section>
     </div>
+  )
+}
+
+/**
+ * Industry category of the active domain. The category is auto-detected when a
+ * domain is added; here the user can see it and change it. Scoped to the active
+ * site (categories are per-domain, not per-workspace).
+ */
+function DomainCategorySection() {
+  const { activeWorkspace, activeDomain, reloadDomains } = useDashboard()
+  const [category, setCategory] = React.useState<string | null>(activeDomain?.category_id ?? null)
+  const [busy, setBusy] = React.useState(false)
+  const [saved, setSaved] = React.useState(false)
+
+  // Re-sync when the active domain changes (adjusted during render).
+  const [prevId, setPrevId] = React.useState(activeDomain?.id)
+  if (activeDomain?.id !== prevId) {
+    setPrevId(activeDomain?.id)
+    setCategory(activeDomain?.category_id ?? null)
+    setSaved(false)
+  }
+
+  const dirty = (category ?? null) !== (activeDomain?.category_id ?? null)
+
+  async function save() {
+    if (!activeWorkspace || !activeDomain) return
+    setBusy(true)
+    try {
+      await workspacesApi.updateDomain(activeWorkspace.id, activeDomain.id, { category_id: category })
+      await reloadDomains()
+      setSaved(true)
+      toast.success(`Updated category for ${activeDomain.domain}`)
+    } catch {
+      toast.error("Couldn't update the category.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Section icon={Tag} title="Domain category"
+      description="The industry detected for your active site. It keeps competitor suggestions on-topic — change it anytime.">
+      {activeDomain ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Category for <span className="font-medium text-foreground">{activeDomain.domain}</span>
+          </p>
+          <div className="max-w-sm">
+            <CategorySelect value={category} onChange={(v) => { setCategory(v); setSaved(false) }} disabled={busy} />
+          </div>
+          <Button onClick={save} disabled={busy || !dirty}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : saved && !dirty ? <><Check className="size-4" /> Saved</> : "Save category"}
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Add a domain to set its category.</p>
+      )}
+    </Section>
   )
 }
 

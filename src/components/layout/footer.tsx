@@ -26,16 +26,38 @@ const social = [
 /** Public site footer — server component. */
 export function Footer() {
   return (
-    <footer className="relative border-t border-border bg-muted/30">
-      <Container className="pt-4">
-        <div className="grid grid-cols-2 gap-10 py-14 sm:grid-cols-3 lg:grid-cols-6">
+    <footer className="relative overflow-hidden border-t border-border bg-gradient-to-b from-muted/20 to-muted/50">
+      {/* Gradient hairline accent along the top edge */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ backgroundImage: "linear-gradient(90deg, transparent, var(--cta-from), var(--cta-to), transparent)" }}
+      />
+
+      <Container className="relative">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-12 py-16 sm:grid-cols-3 lg:grid-cols-12">
           {/* Brand column */}
-          <div className="col-span-2 sm:col-span-3 lg:col-span-2">
+          <div className="col-span-2 sm:col-span-3 lg:col-span-4">
             <Logo />
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              {site.tagline}. Rank higher across search and AI answers with first-party data you own.
+            <p className="mt-5 max-w-xs text-sm leading-relaxed text-muted-foreground">
+              {site.tagline}. Rank higher across search and AI answers with
+              first-party data you own.
             </p>
-            <ul className="mt-6 flex items-center gap-2">
+
+            <a
+              href={`mailto:${site.contact.email}`}
+              className="group mt-6 inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-brand"
+            >
+              <span className="flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors group-hover:border-brand/40 group-hover:text-brand">
+                <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <path d="m3 7 9 6 9-6" />
+                </svg>
+              </span>
+              {site.contact.email}
+            </a>
+
+            <ul className="mt-6 flex items-center gap-2.5">
               {social.map((s) => (
                 <li key={s.label}>
                   <a
@@ -43,9 +65,9 @@ export function Footer() {
                     aria-label={s.label}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-brand/40 hover:text-brand"
+                    className="flex size-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:text-brand hover:shadow-md"
                   >
-                    <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
+                    <svg viewBox="0 0 24 24" className="size-[18px]" fill="currentColor" aria-hidden>
                       <path d={s.path} />
                     </svg>
                   </a>
@@ -56,12 +78,18 @@ export function Footer() {
 
           {/* Link columns */}
           {footerColumns.map((col) => (
-            <nav key={col.label} aria-label={col.label}>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground/70">{col.label}</h3>
+            <nav key={col.label} aria-label={col.label} className="lg:col-span-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground/60">
+                {col.label}
+              </h3>
               <ul className="mt-4 space-y-3">
                 {col.items.map((item) => (
                   <li key={item.href}>
-                    <Link href={item.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                    <Link
+                      href={item.href}
+                      className="group inline-flex items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <span className="h-px w-0 bg-brand transition-all duration-200 group-hover:mr-2 group-hover:w-3" aria-hidden />
                       {item.label}
                     </Link>
                   </li>
@@ -71,14 +99,28 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col items-start justify-between gap-4 border-t border-border py-6 sm:flex-row sm:items-center">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} {site.name}. All rights reserved.
-          </p>
+        {/* Bottom bar */}
+        <div className="flex flex-col items-start justify-between gap-4 border-t border-border/70 py-7 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} {site.name}. All rights reserved.
+            </p>
+            <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
+            <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" strokeLinecap="round" />
+              </svg>
+              English · United States
+            </span>
+          </div>
           <ul className="flex items-center gap-5">
             {legalLinks.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className="text-sm text-muted-foreground hover:text-foreground">
+                <Link
+                  href={l.href}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
                   {l.label}
                 </Link>
               </li>

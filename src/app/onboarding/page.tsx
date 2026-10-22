@@ -11,10 +11,12 @@ import {
   Loader2,
   Rocket,
   Sparkles,
+  Tag,
 } from "lucide-react"
 
 import { brand } from "@/config/brand"
 import { authApi } from "@/lib/api/auth"
+import { categoriesApi } from "@/lib/api/categories"
 import { workspacesApi, type Workspace } from "@/lib/api/workspaces"
 import { ApiError, NetworkError } from "@/lib/api/client"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -44,6 +46,39 @@ export default function OnboardingPage() {
   const [siteUrl, setSiteUrl] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+
+  // Result phase: after the domain is added we show which industry category was
+  // auto-detected for it (background task) before sending the user to the app.
+  const [phase, setPhase] = React.useState<"form" | "result">("form")
+  const [addedDomain, setAddedDomain] = React.useState<string | null>(null)
+  const [detectedCategory, setDetectedCategory] = React.useState<string | null>(null)
+  const [detecting, setDetecting] = React.useState(false)
+  const cancelledRef = React.useRef(false)
+  React.useEffect(() => () => { cancelledRef.current = true }, [])
+
+  // Poll the domain until the background task assigns its category (or we give
+  // up), then resolve the category's display name.
+  async function pollDetectedCategory(workspaceId: string, domainId: string) {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+    for (let i = 0; i < 10; i++) {
+      await sleep(2000)
+      if (cancelledRef.current) return
+      try {
+        const list = await workspacesApi.domains(workspaceId)
+        const d = list.find((x) => x.id === domainId)
+        if (d?.category_id) {
+          const cats = await categoriesApi.list()
+          if (cancelledRef.current) return
+          setDetectedCategory(cats.find((c) => c.id === d.category_id)?.name ?? null)
+          setDetecting(false)
+          return
+        }
+      } catch {
+        // transient — keep polling
+      }
+    }
+    if (!cancelledRef.current) setDetecting(false) // timed out; stays uncategorized for now
+  }
 
   React.useEffect(() => {
     let alive = true
@@ -109,17 +144,27 @@ export default function OnboardingPage() {
     setError(null)
     setBusy(true)
     try {
-      if (withDomain) {
-        const url = siteUrl.trim()
-        if (!url) {
-          setError("Enter your domain, or choose “Skip for now”.")
-          setBusy(false)
-          return
-        }
-        await workspacesApi.addDomain(workspace.id, url)
+      if (!withDomain) {
+        await authApi.completeOnboarding()
+        router.replace("/dashboard")
+        return
       }
+      const url = siteUrl.trim()
+      if (!url) {
+        setError("Enter your domain, or choose “Skip for now”.")
+        setBusy(false)
+        return
+      }
+      const created = await workspacesApi.addDomain(workspace.id, url)
+      // Mark onboarding done now so the user is never stuck on this screen even
+      // if they close it; then show the category we auto-detect in the background.
       await authApi.completeOnboarding()
-      router.replace("/dashboard")
+      setAddedDomain(created.domain)
+      setDetectedCategory(null)
+      setDetecting(true)
+      setBusy(false)
+      setPhase("result")
+      void pollDetectedCategory(workspace.id, created.id)
     } catch (err) {
       setError(describeError(err, "Something went wrong. Please try again."))
       setBusy(false)
@@ -241,6 +286,51 @@ export default function OnboardingPage() {
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-7">
+              {phase === "result" ? (
+                <div className="py-1">
+                  <div className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Check className="size-5" />
+                  </div>
+                  <h1 className="mt-4 text-xl font-semibold tracking-tight">
+                    You&apos;re all set
+                  </h1>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {addedDomain ? (
+                      <>We&apos;re setting up <strong className="text-foreground">{addedDomain}</strong>.</>
+                    ) : (
+                      "Your workspace is ready."
+                    )}
+                  </p>
+
+                  <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
+                    <p className="text-xs font-medium text-muted-foreground">Industry category</p>
+                    <div className="mt-2 flex min-h-7 items-center gap-2">
+                      {detecting ? (
+                        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="size-4 animate-spin" /> Figuring out your category…
+                        </span>
+                      ) : detectedCategory ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-sm font-medium text-primary">
+                          <Tag className="size-3.5" /> {detectedCategory}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          We&apos;ll finish this shortly — you can see and change it on your Domains page.
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      We set this automatically from your site to tailor competitor
+                      suggestions. You can change it anytime in domain settings.
+                    </p>
+                  </div>
+
+                  <Button className="mt-6 w-full" size="lg" onClick={() => router.replace("/dashboard")}>
+                    Go to dashboard <ArrowRight className="size-4" />
+                  </Button>
+                </div>
+              ) : (
+              <>
               <p className="text-xs font-medium text-muted-foreground">
                 Step {step} of 2
               </p>
@@ -369,6 +459,8 @@ export default function OnboardingPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
+              </>
+              )}
             </div>
           </div>
         </div>

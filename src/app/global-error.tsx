@@ -12,10 +12,10 @@ import { fontVariables } from "@/config/fonts"
  */
 export default function GlobalError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string }
-  reset: () => void
+  retry: () => void
 }) {
   React.useEffect(() => {
     console.error(error)
@@ -40,7 +40,7 @@ export default function GlobalError({
             </p>
           ) : null}
           <button
-            onClick={() => reset()}
+            onClick={() => retry()}
             className="mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-brand-foreground shadow-sm transition-colors hover:bg-brand-strong"
           >
             Try again

@@ -70,11 +70,16 @@ export const navSections: NavSection[] = [
     ],
   },
   {
-    // Off-page: who links to you, and who links to competitors but not you.
+    // Off-page: who links to you, who links to competitors but not you, and link-building.
     title: "Backlinks",
     items: [
-      { label: "Backlink Profile", href: "/dashboard/backlinks", icon: Link2, exact: true },
-      { label: "Link Gap", href: "/dashboard/backlinks/gap", icon: Split },
+      // Overview + Anchors & Quality + New & Lost live here as in-page tabs; the
+      // site/page drill-downs highlight this item too.
+      { label: "Overview", href: "/dashboard/backlinks", icon: Link2, exact: true,
+        match: ["/dashboard/backlinks/site", "/dashboard/backlinks/page"] },
+      { label: "Explorer", href: "/dashboard/backlinks/explorer", icon: ScanSearch },
+      // Link Gap + Reclamation as in-page tabs.
+      { label: "Opportunities", href: "/dashboard/backlinks/gap", icon: Split },
     ],
   },
   {

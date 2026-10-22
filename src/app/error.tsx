@@ -11,15 +11,16 @@ import { Button } from "@/components/ui/button"
 /**
  * Global error boundary. Catches render/runtime errors in any segment that
  * doesn't define its own boundary and shows a recoverable, on-brand screen.
- * Must be a client component (Next.js requirement) and receives `reset` to
- * retry rendering the failed segment.
+ * Must be a client component (Next.js requirement) and receives `retry` to
+ * re-fetch and re-render the failed segment (the stable prop as of Next 16.3;
+ * preferred over `reset`, which only clears state without re-fetching).
  */
 export default function GlobalError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string }
-  reset: () => void
+  retry: () => void
 }) {
   React.useEffect(() => {
     // Surface the error for debugging without exposing details to the user.
@@ -48,7 +49,7 @@ export default function GlobalError({
           </p>
         ) : null}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button onClick={() => reset()} variant="brand" size="xl">
+          <Button onClick={() => retry()} variant="brand" size="xl">
             <RotateCw className="size-4" />
             Try again
           </Button>

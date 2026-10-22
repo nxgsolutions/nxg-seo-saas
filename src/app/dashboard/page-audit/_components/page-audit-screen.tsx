@@ -104,7 +104,7 @@ export default function PageAuditPage() {
                     : <p className="text-sm text-muted-foreground">This audit didn&apos;t record image details — run it again.</p>)}
                   {tab === "speed" && (
                     <>
-                      <CoreWebVitals url={result.url} strategy={result.metrics.device === "mobile" ? "mobile" : "desktop"} />
+                      <CoreWebVitals url={result.url} strategy={result.metrics.device === "mobile" ? "mobile" : "desktop"} initial={result.metrics.core_web_vitals ?? null} />
                       <GscSearchPerformance workspaceId={workspaceId} domainId={gscMatch.domainId} domain={gscMatch.host || null} pageUrl={result.url} />
                     </>
                   )}

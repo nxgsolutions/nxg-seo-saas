@@ -6,7 +6,6 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { CategorySelect } from "@/components/dashboard/category-select"
 import { normalizeDomain } from "@/components/dashboard/competitor-combobox"
 import { useDashboard } from "@/components/dashboard/dashboard-context"
 import { ApiError, NetworkError } from "@/lib/api/client"
@@ -94,7 +93,6 @@ export function DomainField({ value, onChange, disabled, autoFocus, invalid }: {
 export function AddDomainDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { activeWorkspace, reloadDomains, setActiveDomainId } = useDashboard()
   const [text, setText] = React.useState("")
-  const [category, setCategory] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -105,11 +103,12 @@ export function AddDomainDialog({ open, onOpenChange }: { open: boolean; onOpenC
     if (!activeWorkspace) return
     setBusy(true); setError(null)
     try {
-      const created = await workspacesApi.addDomain(activeWorkspace.id, site, { categoryId: category })
+      // Category is auto-detected in the background; no manual picking here.
+      const created = await workspacesApi.addDomain(activeWorkspace.id, site)
       await reloadDomains()
       setActiveDomainId(created.id)
       toast.success(`Now working on ${created.domain}`)
-      setText(""); setCategory(null)
+      setText("")
       onOpenChange(false)
     } catch (err) {
       setError(describeError(err, "Could not add the domain."))
@@ -117,12 +116,11 @@ export function AddDomainDialog({ open, onOpenChange }: { open: boolean; onOpenC
   }
 
   return (
-    <Modal open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setError(null); setCategory(null) } }}
+    <Modal open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setError(null) }}
       title="Add a domain"
       description={<>It&apos;s added to <strong className="text-foreground">{activeWorkspace?.name}</strong> and every page switches to it.</>}>
       <form onSubmit={submit} className="space-y-4">
         <DomainField value={text} onChange={(v) => { setText(v); setError(null) }} disabled={busy} autoFocus invalid={!!error} />
-        <CategorySelect value={category} onChange={setCategory} disabled={busy} />
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
