@@ -64,12 +64,55 @@ export interface CuratedCompetitor {
   last_captured_on: string | null
 }
 
+export interface BusinessProfile {
+  business_description: string | null
+  /** Short commerce-model label, e.g. "D2C e-commerce / online retail". */
+  industry: string | null
+  /** Short product niche / market sector, e.g. "Handcrafted brass décor". */
+  sector: string | null
+  /** "products" | "services" | "both" — what the site primarily offers. */
+  business_type: string | null
+  /** Core products that define the business. */
+  primary_products: string[]
+  /** Supporting / peripheral products. */
+  secondary_products: string[]
+  /** Combined primary+secondary (back-compat). */
+  products: string[]
+  /** Services / offerings / features (empty for a pure product catalog). */
+  services: string[]
+  /** Short distinctive angle, e.g. "Handcrafted religious & Vastu brass". */
+  specialties: string | null
+  /** Price tier, e.g. "premium, ~₹1,500-15,000". */
+  price_positioning: string | null
+  target_audience: string | null
+  market: string | null
+}
+
+export interface BusinessProfileResponse {
+  domain: string
+  target: string | null
+  profile: BusinessProfile | null
+  extracted_at: string | null
+}
+
 export interface CompetitorDiscoverResponse {
   domain: string
   target: string
   market: string
   count: number
+  profile: BusinessProfile | null
   competitors: CuratedCompetitor[]
+}
+
+/** Live status of an async discovery run (polled for step-by-step progress). */
+export interface DiscoveryJob {
+  job_id: string
+  status: "running" | "done" | "error"
+  step: number
+  step_label: string | null
+  total_steps: number
+  count: number | null
+  error: string | null
 }
 
 export interface CuratedCompetitorsResponse {
@@ -95,6 +138,11 @@ function base(wid: string, did: string) {
   return `/api/workspaces/${wid}/domains/${did}/competitors`
 }
 
+// AI discovery scrapes the site and makes two LLM calls, so it can run well past
+// the default 120s write timeout. Give it a generous budget so the client waits
+// (showing "processing") instead of erroring on a request the server completes.
+const AI_DISCOVERY_TIMEOUT_MS = 300_000
+
 export const competitorsApi = {
   /** User-editable curated list (with latest rank). */
   list: (wid: string, did: string) =>
@@ -106,18 +154,35 @@ export const competitorsApi = {
   remove: (wid: string, did: string, competitorId: string) =>
     apiClient.del<void>(`${base(wid, did)}/list/${competitorId}`),
 
-  /** LLM: find top competitors for a domain and store them (source='ai').
-   *  extraServices steer the match toward features not yet on the site. */
+  /** Start async competitor discovery (3-agent pipeline). Returns a job to poll
+   *  with `discoverStatus`. extraServices steer the match toward features not yet
+   *  on the site. */
   discover: (
     wid: string,
     did: string,
     opts: { targetDomain?: string; limit?: number; extraServices?: string[] } = {}
   ) =>
-    apiClient.post<CompetitorDiscoverResponse>(`${base(wid, did)}/discover`, {
+    apiClient.post<DiscoveryJob>(`${base(wid, did)}/discover`, {
       target_domain: opts.targetDomain || null,
       limit: opts.limit ?? 10,
       extra_services: opts.extraServices && opts.extraServices.length ? opts.extraServices : null,
     }),
+
+  /** Poll a discovery job for live step progress. */
+  discoverStatus: (wid: string, did: string, jobId: string) =>
+    apiClient.get<DiscoveryJob>(`${base(wid, did)}/discover/${jobId}`),
+
+  /** The business profile extracted from the site (first pass of discovery). */
+  businessProfile: (wid: string, did: string) =>
+    apiClient.get<BusinessProfileResponse>(`${base(wid, did)}/business-profile`),
+
+  /** Re-run ONLY the business extraction (re-scrape + re-extract), leaving the
+   *  competitor list untouched. */
+  refreshBusinessProfile: (wid: string, did: string) =>
+    apiClient.post<BusinessProfileResponse>(
+      `${base(wid, did)}/business-profile/refresh`, {},
+      { timeout: AI_DISCOVERY_TIMEOUT_MS },
+    ),
 
   suggestions: (
     wid: string,

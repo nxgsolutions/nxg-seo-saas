@@ -5,28 +5,34 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { useDiscoverCompetitors } from "@/hooks/api/use-competitors"
-import { errorMessage } from "@/lib/api/client"
+import type { useDiscoverCompetitors } from "@/hooks/api/use-competitors"
 import { Loader2, Search, Sparkles } from "lucide-react"
 import * as React from "react"
 
-export function DiscoverPanel({ domainId }: { domainId: string }) {
+export function DiscoverPanel({
+  domainId,
+  discover,
+}: {
+  domainId: string
+  discover: ReturnType<typeof useDiscoverCompetitors>
+}) {
   const { activeWorkspace, domains } = useDashboard()
   const workspaceId = activeWorkspace?.id ?? null
-  const discover = useDiscoverCompetitors(workspaceId, domainId || null)
   // Prefilled with the selected website's domain until the user types.
   const [typed, setTarget] = React.useState<string | null>(null)
   const target = typed ?? domains.find((x) => x.id === domainId)?.domain ?? ""
   const [extra, setExtra] = React.useState("")
-  const busy = discover.isPending
-  const error = discover.isError ? errorMessage(discover.error, "Could not find competitors.") : null
-  const note = discover.data ? `Found ${discover.data.count} competitors for ${discover.data.target} (${discover.data.market}).` : null
+  const busy = discover.isRunning
+  const error = discover.error
+  const note = discover.isDone && discover.job
+    ? `Found ${discover.job.count ?? 0} competitors.`
+    : null
 
   function run(e: React.FormEvent) {
     e.preventDefault()
     if (!workspaceId || !domainId) return
     const extraServices = extra.split(",").map((s) => s.trim()).filter(Boolean)
-    discover.mutate({ targetDomain: target.trim() || undefined, extraServices })
+    discover.start({ targetDomain: target.trim() || undefined, extraServices })
   }
 
   return (
@@ -69,7 +75,9 @@ export function DiscoverPanel({ domainId }: { domainId: string }) {
         <p className="text-xs text-muted-foreground">
           Add features not yet on your site to steer the match; leave blank to use only the scraped services.
         </p>
-        {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
+        {/* Live progress is shown in the centered DiscoveryOverlay (rendered once
+            by the screen), so there's no inline progress block here. */}
+        {note && !busy ? <p className="text-xs text-muted-foreground">{note}</p> : null}
       </CardContent>
     </Card>
   )

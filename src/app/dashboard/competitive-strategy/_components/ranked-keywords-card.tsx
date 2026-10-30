@@ -300,7 +300,7 @@ export function RankedKeywordsCard({
     : null
 
   const qc = useQueryClient()
-  const discoverMutation = useDiscoverCompetitors(workspaceId, domainId)
+  const discover = useDiscoverCompetitors(workspaceId, domainId)
   const refreshMutation = useRankedRefresh(workspaceId, domainId)
   const estimateMutation = useRankedEstimate(workspaceId, domainId)
   const addMutation = useAddRankedCompetitor(workspaceId, domainId)
@@ -473,34 +473,36 @@ export function RankedKeywordsCard({
   const morePicks = comboOptions.length - quickPicks.length
   // New workspace: the only option is your own site — no competitors found/added yet.
   const noCompetitors = comboOptions.length <= 1
-  const discovering = discoverMutation.isPending
+  const discovering = discover.isRunning
 
-  /** First-run: auto-find competitors for the current domain (AI), then the
-   * combobox / quick-picks fill in. No trip to the competitor list needed. */
+  /** First-run: auto-find competitors for the current domain (AI, async job),
+   * then the combobox / quick-picks fill in. No trip to the competitor list. */
   function findCompetitors() {
     if (!domainId) return
     setError(null)
-    discoverMutation.mutate(
-      { extraServices: [] },
-      {
-        onSuccess: (res) => {
-          qc.invalidateQueries({
-            queryKey: queryKeys.rankedKeywords.options(workspaceId, domainId),
-          })
-          const n = (res as { count?: number } | undefined)?.count
-          toast.success(
-            n
-              ? `Found ${n} competitors — pick one to see its keywords`
-              : "Competitor search complete",
-          )
-        },
-        onError: (e) =>
-          setError(
-            errorMessage(e, "Could not find competitors. Please try again."),
-          ),
-      },
-    )
+    discover.start({ extraServices: [] })
   }
+
+  // React to the async discovery job finishing: refresh the options + toast, or
+  // surface an error.
+  const handledJob = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    const job = discover.job
+    if (!job || job.status === "running" || handledJob.current === job.job_id) return
+    handledJob.current = job.job_id
+    if (job.status === "done") {
+      qc.invalidateQueries({
+        queryKey: queryKeys.rankedKeywords.options(workspaceId, domainId),
+      })
+      toast.success(
+        job.count
+          ? `Found ${job.count} competitors — pick one to see its keywords`
+          : "Competitor search complete",
+      )
+    } else if (job.status === "error") {
+      setError(job.error ?? "Could not find competitors. Please try again.")
+    }
+  }, [discover.job, qc, workspaceId, domainId])
 
   const storedHere = data?.stored_scopes.find((x) => x.scope === activeScope)
   // Stored rows exist for this scope (filters may still match none on this page).

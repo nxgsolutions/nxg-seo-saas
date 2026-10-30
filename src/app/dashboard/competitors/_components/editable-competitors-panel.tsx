@@ -25,7 +25,8 @@ import type {
   CuratedCompetitor,
 } from "@/lib/api/competitors"
 // import { cn } from "@/lib/utils"  // only used by the hidden "Suggested" row below
-import { Plus, Trash2, Users } from "lucide-react"
+import { Plus, Swords, Trash2, Users } from "lucide-react"
+import Link from "next/link"
 import * as React from "react"
 import {
   CompetitorCombobox,
@@ -104,7 +105,7 @@ export function EditableCompetitorsPanel({ domainId }: { domainId: string }) {
             void add(d)
           }}
           clearOnPick
-          placeholder="Add a competitor domain, e.g. superkalam.com"
+          placeholder="Add a competitor domain, e.g. yourcompetitor.com"
           actionLabel="Add"
           actionIcon={<Plus className="size-4" />}
           disabled={!domainId}
@@ -176,18 +177,30 @@ export function EditableCompetitorsPanel({ domainId }: { domainId: string }) {
                     </p>
                   ) : null}
                 </div>
-                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                  {r.avg_position != null
-                    ? `avg #${r.avg_position}`
-                    : "no rank data"}
-                  {r.keywords_shared != null
-                    ? ` · ${r.keywords_shared} kw`
-                    : ""}
-                </span>
+                {r.avg_position != null ? (
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {`avg #${r.avg_position}`}
+                    {r.keywords_shared != null
+                      ? ` · ${r.keywords_shared} kw`
+                      : ""}
+                  </span>
+                ) : null}
+                <Button
+                  render={
+                    <Link
+                      href={`/dashboard/competitive-strategy?competitor=${encodeURIComponent(r.competitor)}`}
+                    />
+                  }
+                  size="sm"
+                  className="shrink-0 gap-1.5 bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+                  title={`See ${r.competitor}'s keywords`}
+                >
+                  <Swords className="size-4" /> See keywords
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  className="shrink-0 text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => setToRemove(r)}
                   disabled={busy}
                   aria-label={`Remove ${r.competitor}`}

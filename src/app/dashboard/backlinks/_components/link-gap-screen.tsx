@@ -11,6 +11,7 @@ import { useDashboard } from "@/components/dashboard/dashboard-context"
 import { Pager } from "@/components/ui/pager"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useLinkGap, useRefreshLinkGap } from "@/hooks/api/use-backlinks"
+import type { GapDomainRow } from "@/lib/api/backlinks"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
@@ -28,6 +29,66 @@ const HEADER = (
   <PageHeader title={<><Split className="size-5 text-primary" /> Link Gap</>}
     description="Sites that link to your competitors but not to you — your best prospects for new backlinks." />
 )
+
+/** One prospect row: a compact "linked by" summary (dots + count) that expands
+ * to the full per-competitor backlink breakdown — so the table width is fixed
+ * no matter how many competitors are compared. */
+function GapRow({ r, sel }: { r: GapDomainRow; sel: string[] }) {
+  const [open, setOpen] = React.useState(false)
+  const n = sel.filter((c) => (r.links[c] ?? 0) > 0).length
+  const totalLinks = sel.reduce((a, c) => a + (r.links[c] ?? 0), 0)
+  return (
+    <>
+      <tr className="hover:bg-muted/40">
+        <td className="px-6 py-2">
+          <a href={`https://${r.domain}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+            {r.domain}<ExternalLink className="size-3" />
+          </a>
+        </td>
+        <td className="px-3 py-2 text-right font-semibold tabular-nums">{r.rank ?? "—"}</td>
+        <td className="px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="flex gap-0.5" aria-hidden="true">
+              {sel.map((c) => (
+                <span key={c} title={`${c}${(r.links[c] ?? 0) > 0 ? ` · ${r.links[c]} links` : " · no link"}`}
+                  className={cn("size-2 rounded-full", (r.links[c] ?? 0) > 0 ? "bg-emerald-500" : "bg-muted-foreground/25")} />
+              ))}
+            </span>
+            <span className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium",
+              n > 1 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground")}>
+              {n} of {sel.length}
+            </span>
+          </div>
+        </td>
+        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{compact(totalLinks)}</td>
+        <td className="px-3 py-2 text-right">
+          <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Show per-competitor links"
+            className="inline-flex cursor-pointer items-center rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+          </button>
+        </td>
+      </tr>
+      {open && (
+        <tr className="bg-muted/30">
+          <td colSpan={5} className="px-6 py-3">
+            <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+              {sel.map((c) => {
+                const v = r.links[c] ?? 0
+                return (
+                  <li key={c} className="flex items-center gap-1.5">
+                    <span className={cn("size-2 rounded-full", v > 0 ? "bg-emerald-500" : "bg-muted-foreground/25")} aria-hidden="true" />
+                    <span className={v > 0 ? "font-medium" : "text-muted-foreground"}>{c}</span>
+                    <span className="tabular-nums text-muted-foreground">{v > 0 ? `${compact(v)} links` : "—"}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
 
 export default function LinkGapPage({ embedded = false }: { embedded?: boolean }) {
   const header = embedded ? null : HEADER
@@ -183,42 +244,20 @@ export default function LinkGapPage({ embedded = false }: { embedded?: boolean }
               </span>
             </div>
             <div className="overflow-x-auto border-t border-border">
-              <table className="w-full min-w-[640px] text-sm">
+              <table className="w-full min-w-[620px] text-sm">
                 <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-6 py-2 font-medium">Site (not linking to you)</th>
                   <th className="px-3 py-2 text-right font-medium">Authority</th>
-                  <th className="px-3 py-2 font-medium">Links to</th>
-                  {sel.map((c) => <th key={c} className="max-w-[9rem] truncate px-3 py-2 text-right font-medium normal-case" title={c}>{c}</th>)}
+                  <th className="px-3 py-2 font-medium">Linked by</th>
+                  <th className="px-3 py-2 text-right font-medium">Total links</th>
+                  <th className="w-10 px-3 py-2"><span className="sr-only">Per-competitor breakdown</span></th>
                 </tr></thead>
                 <tbody className="divide-y divide-border/60">
                   {total === 0 ? (
-                    <tr><td colSpan={3 + sel.length} className="px-6 py-10 text-center text-sm text-muted-foreground">
+                    <tr><td colSpan={5} className="px-6 py-10 text-center text-sm text-muted-foreground">
                       {sel.length === 0 ? "Select at least one competitor above." : "No sites match this filter — try “any” or fewer competitors."}
                     </td></tr>
-                  ) : pageRows.map((r) => {
-                    const n = linkedCount(r)
-                    return (
-                      <tr key={r.domain} className="hover:bg-muted/40">
-                        <td className="px-6 py-2">
-                          <a href={`https://${r.domain}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
-                            {r.domain}<ExternalLink className="size-3" />
-                          </a>
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold tabular-nums">{r.rank ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs">
-                          <span className={cn("rounded-full px-2 py-0.5 font-medium",
-                            n > 1 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground")}>
-                            {n} of {sel.length}
-                          </span>
-                        </td>
-                        {sel.map((c) => (
-                          <td key={c} className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                            {r.links[c] != null ? compact(r.links[c] ?? 0) : "—"}
-                          </td>
-                        ))}
-                      </tr>
-                    )
-                  })}
+                  ) : pageRows.map((r) => <GapRow key={r.domain} r={r} sel={sel} />)}
                 </tbody>
               </table>
             </div>

@@ -62,6 +62,7 @@ export const queryKeys = {
   /** Action Plan tabs: quick wins, tracked keywords, overview, pages. */
   opportunity: (wid: string, did: string) => [...dom(wid, did), "opportunity"] as const,
   pageDiscovery: (wid: string, did: string) => [...dom(wid, did), "page-discovery"] as const,
+  siteScore: (wid: string, did: string) => [...dom(wid, did), "site-score"] as const,
   pageInsight: (wid: string, did: string, keyword: string, url: string | null, competitorUrl: string | null) =>
     [...dom(wid, did), "page-insight", keyword, url ?? "", competitorUrl ?? ""] as const,
 }

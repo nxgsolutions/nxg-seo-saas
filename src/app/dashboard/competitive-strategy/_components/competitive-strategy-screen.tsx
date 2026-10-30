@@ -1,5 +1,9 @@
 "use client"
 
+import Link from "next/link"
+import { Swords, Users } from "lucide-react"
+import { PageHeader } from "@/components/dashboard/page-header"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
@@ -24,9 +28,13 @@ export default function CompetitiveStrategyPage({ initialCompetitor = null }: { 
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">
-        Competitor keywords first, then who ranks for your tracked keywords.
-      </p>
+      <PageHeader title={<> <Swords className="size-5 text-primary" /> Competitor Keywords </>}
+        description="What your competitors rank for, then who ranks for your tracked keywords."
+        actions={
+          <Button render={<Link href="/dashboard/competitors" />} variant="outline" size="sm">
+            <Users className="size-4" /> Tracked competitors
+          </Button>
+        } />
 
       {/* 1. Keywords competitors actually rank for — first, and independent of
           our SERP footprint (works for any domain, even with no SERP data). */}
@@ -53,7 +61,8 @@ export default function CompetitiveStrategyPage({ initialCompetitor = null }: { 
         </CardContent></Card>
       ) : (
         <div className={cn("space-y-5 transition-opacity", loading && "opacity-60")}>
-          {/* Summary tiles */}
+          {/* --- Temporarily hidden sections (summary tiles, footprint table, benchmark charts) ---
+          {/* Summary tiles *}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Card><CardContent className="py-4">
               <p className="text-xs text-muted-foreground">Tracked keywords</p>
@@ -80,13 +89,13 @@ export default function CompetitiveStrategyPage({ initialCompetitor = null }: { 
             </CardContent></Card>
           </div>
 
-          {/* Competitor footprint — common keywords / gap, expandable */}
+          {/* Competitor footprint — common keywords / gap, expandable *}
           {workspaceId && (
             <CompetitorFootprintTable workspaceId={workspaceId} domainId={domainId}
               data={data} analytics={analytics} onShowRankings={showRankings} onScopeChange={setScope} />
           )}
 
-          {/* Benchmark charts from the stored whole-site analytics (table below holds every value). */}
+          {/* Benchmark charts from the stored whole-site analytics (table below holds every value). *}
           {analytics && analytics.rows.length > 1 && (
             <Card><CardContent className="pt-6">
               <p className="mb-1 text-base font-semibold">Competitor benchmark</p>
@@ -96,6 +105,7 @@ export default function CompetitiveStrategyPage({ initialCompetitor = null }: { 
               <CompetitorBenchmarkCharts rows={analytics.rows} />
             </CardContent></Card>
           )}
+          --- end hidden sections --- */}
 
           <CompetitorAnalyticsCard
             analytics={analytics}

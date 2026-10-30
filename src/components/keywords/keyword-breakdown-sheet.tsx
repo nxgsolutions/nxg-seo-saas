@@ -306,12 +306,17 @@ function ResultsTab({ data, workspaceId, onUpdated, competitors, onAddCompetitor
   const [confirming, setConfirming] = React.useState(false)
   const [updating, setUpdating] = React.useState(false)
 
-  // Your own ranking row(s) float to the top so you see your rank without
-  // paging past the results above you; the # column still shows real positions.
-  const ordered = React.useMemo(
-    () => [...data.rows.filter((r) => r.is_you), ...data.rows.filter((r) => !r.is_you)],
-    [data.rows],
-  )
+  // Rows float up in three tiers — you, then your competitors, then everyone
+  // else — so you see your rank and your rivals' without paging past the rest;
+  // the # column still shows real Google positions. Within each tier the
+  // original position order is kept. Null competitors (no website / loading)
+  // collapses to the old two tiers.
+  const ordered = React.useMemo(() => {
+    const you = data.rows.filter((r) => r.is_you)
+    const rivals = competitors ? data.rows.filter((r) => !r.is_you && competitors.has(r.host)) : []
+    const rest = data.rows.filter((r) => !r.is_you && !(competitors?.has(r.host)))
+    return [...you, ...rivals, ...rest]
+  }, [data.rows, competitors])
   const pages = Math.max(1, Math.ceil(ordered.length / PAGE))
   const rows = ordered.slice(page * PAGE, page * PAGE + PAGE)
   const sandbox = data.environment === "sandbox"

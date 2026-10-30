@@ -67,7 +67,7 @@ function Metric({ label, children, width = "w-20", highlight }: {
 }) {
   return (
     <div className={cn("flex flex-col items-end gap-0.5 text-right", width)}>
-      <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">{label}</dt>
+      <dt className="whitespace-nowrap text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">{label}</dt>
       <dd className={cn("text-sm font-semibold tabular-nums", highlight && "text-primary")}>{children}</dd>
     </div>
   )
@@ -184,19 +184,30 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
   const renderRow = (i: ActionItem, rank?: number) => (
     <li key={`${i.type}:${i.keyword}`}
       className={cn("px-4 py-3.5 transition-colors", isOpen(i) ? "bg-primary/[0.04]" : "hover:bg-muted/40")}>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+      {/* Below xl: flexible wrapping. At xl: a fixed grid so every column
+          (metrics + actions) lines up across all rows, regardless of which
+          buttons a row shows or whether a value is missing. */}
+      <div
+        className="flex flex-wrap items-center gap-x-6 gap-y-3 xl:grid xl:items-center xl:gap-x-4"
+        style={{
+          gridTemplateColumns: rank != null
+            ? "2rem minmax(200px,1fr) 5rem 4rem 4rem 6rem 23.5rem"
+            : "minmax(200px,1fr) 5rem 4rem 4rem 6rem 23.5rem",
+        }}
+      >
         {rank != null && (
           <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
             rank <= 3 ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>{rank}</span>
         )}
-        <div className="min-w-[220px] flex-1 space-y-1">
+        <div className="min-w-[220px] flex-1 space-y-1 xl:min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <TypeBadge type={i.type} />
             <span className="ds-item">{i.keyword}</span>
           </div>
           <p className="ds-meta">{i.reason}</p>
         </div>
-        <dl className="flex shrink-0 items-start gap-5">
+        {/* flex group on small screens; each metric becomes its own grid column at xl. */}
+        <dl className="flex shrink-0 items-start gap-5 xl:contents">
           <Metric label="Volume" width="w-20">{num(i.volume)}</Metric>
           <Metric label="Difficulty" width="w-16"><Kd kd={i.difficulty} /></Metric>
           <Metric label="Your pos." width="w-16">
@@ -206,7 +217,7 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
             +{num(i.gain)}<span className="text-[11px] font-normal text-muted-foreground">/mo</span>
           </Metric>
         </dl>
-        <div className="flex shrink-0 justify-end sm:min-w-[320px]">
+        <div className="flex shrink-0 justify-end sm:w-[376px] xl:w-full">
           <Actions item={i} tracked={isTracked(i)} onTrack={track} busy={tracking === i.keyword}
             open={isOpen(i)} onDetails={() => toggle(i)} />
         </div>
