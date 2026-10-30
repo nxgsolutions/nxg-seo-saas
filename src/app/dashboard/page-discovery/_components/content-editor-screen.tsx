@@ -38,6 +38,7 @@ import {
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import * as React from "react"
+import { cleanEditorHtml } from "../_lib/editor-html"
 
 const BACK_HREF = "/dashboard/page-discovery"
 
@@ -133,11 +134,23 @@ function Editor({
 
   // Push the seeded HTML into the uncontrolled contentEditable surface. This is a
   // DOM sync (no setState), so it belongs in an effect and keyed on the seed.
+  // cleanEditorHtml() strips stray bold so the caret doesn't inherit it.
   React.useLayoutEffect(() => {
     if (seeded && editorRef.current)
-      editorRef.current.innerHTML = bodyHtml || "<p></p>"
+      editorRef.current.innerHTML = cleanEditorHtml(bodyHtml)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seeded])
+
+  // Make new blocks plain <p> (not <div>) and keep bold as <b> tags, so typed
+  // text matches the normalized content and never picks up a sticky style.
+  React.useEffect(() => {
+    try {
+      document.execCommand("defaultParagraphSeparator", false, "p")
+      document.execCommand("styleWithCSS", false, "false")
+    } catch {
+      /* execCommand is best-effort; the editor still works without it. */
+    }
+  }, [])
 
   const loadError =
     content?.error ??

@@ -7,6 +7,7 @@ import {
   FileBarChart,
   FileText,
   Gauge,
+  Globe,
   History,
   KeyRound,
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   ScanSearch,
   Split,
   Swords,
+  Target,
   TrendingUp,
   Users,
   Wrench,
@@ -56,8 +58,11 @@ export const navSections: NavSection[] = [
       // Saved Keywords: a shortlist you save (no rank tracking). Paired with the
       // "Save keyword" action in components/keywords/keyword-actions-menu.tsx.
       { label: "Saved Keywords", href: "/dashboard/my-keywords", icon: Bookmark },
-      { label: "Competitive Strategy", href: "/dashboard/competitive-strategy", icon: LineChart, match: ["/dashboard/competitors"] },
-      { label: "Opportunity Research", href: "/dashboard/opportunity-research", icon: TrendingUp },
+      // Competitor Analysis (your tracked list) and Competitor Keywords (what they
+      // rank for) are two standalone pages — no shared tab bar between them.
+      { label: "Competitor Analysis", href: "/dashboard/competitors", icon: Users },
+      { label: "Competitor Keywords", href: "/dashboard/competitive-strategy", icon: Swords },
+      { label: "Action Plan", href: "/dashboard/opportunity-research", icon: TrendingUp },
     ],
   },
   {
@@ -65,7 +70,10 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Content Optimization", href: "/dashboard/content-optimization", icon: FileText },
       { label: "Page Discovery", href: "/dashboard/page-discovery", icon: ScanSearch },
-      { label: "Page Audit", href: "/dashboard/page-audit", icon: Gauge, match: ["/dashboard/page-optimization", "/dashboard/page-history"] },
+      // One item surfaces the whole site→page→fix→track journey; its sub-pages
+      // render as the tab bar below (navTabGroups[0]). href points at the first
+      // step (Site score) so the menu click and the first tab agree.
+      { label: "Audit & Scores", href: "/dashboard/site-score", icon: Gauge, match: ["/dashboard/page-audit", "/dashboard/page-score", "/dashboard/page-optimization", "/dashboard/page-history"] },
       { label: "Title & Meta", href: "/dashboard/meta-tags", icon: Code2, match: ["/dashboard/serp-preview"] },
     ],
   },
@@ -111,14 +119,13 @@ export const navSections: NavSection[] = [
 /** A page inside a tab group; rendered by SectionTabs as a "cards" segmented tab. */
 export interface NavTab { label: string; href: string; icon: LucideIcon; description: string }
 export const navTabGroups: NavTab[][] = [
+  // Ordered as a new-user journey: broad → narrow → act → track.
   [
-    { label: "Competitor keywords", href: "/dashboard/competitive-strategy", icon: Swords, description: "What their sites rank for" },
-    { label: "Tracked competitors", href: "/dashboard/competitors", icon: Users, description: "Your competitor list" },
-  ],
-  [
-    { label: "Audit", href: "/dashboard/page-audit", icon: Gauge, description: "Score a page" },
-    { label: "Page history", href: "/dashboard/page-history", icon: History, description: "Changes & results over time" },
-    { label: "Fix plan", href: "/dashboard/page-optimization", icon: Wrench, description: "What to fix first" },
+    { label: "Site score", href: "/dashboard/site-score", icon: Globe, description: "Start here — your whole site's SEO score" },
+    { label: "Overall score", href: "/dashboard/page-score", icon: Target, description: "Zoom in — one page's weighted score" },
+    { label: "Audit", href: "/dashboard/page-audit", icon: Gauge, description: "See what's wrong — full technical checklist" },
+    { label: "Fix plan", href: "/dashboard/page-optimization", icon: Wrench, description: "Act on it — what to fix first" },
+    { label: "Page history", href: "/dashboard/page-history", icon: History, description: "Track results — changes over time" },
   ],
   [
     { label: "Meta tags", href: "/dashboard/meta-tags", icon: Code2, description: "Titles & descriptions" },

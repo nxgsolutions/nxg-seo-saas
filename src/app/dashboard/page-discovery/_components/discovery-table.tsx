@@ -172,15 +172,14 @@ function Row({ row: r, sn }: {
       </td>
       <td className="px-3 py-2.5 text-xs text-muted-foreground">{fmtDate(r.sitemap_lastmod)}</td>
       <td className="px-3 py-2.5">
-        <div className="flex items-center justify-end gap-3">
-          <Link href={`/dashboard/page-discovery/edit?page=${encodeURIComponent(r.id)}`}
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-            <PenLine className="size-3.5" /> Edit
-          </Link>
-          <Link href={`/dashboard/page-audit?url=${encodeURIComponent(r.url)}`}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" title="Open full Page Audit">
-            <FileSearch className="size-3.5" /> Audit
-          </Link>
+        <div className="flex items-center justify-end gap-2">
+          <Button size="xs" render={<Link href={`/dashboard/page-discovery/edit?page=${encodeURIComponent(r.id)}`} />}>
+            <PenLine /> Edit
+          </Button>
+          <Button size="xs" variant="outline" title="Open full Page Audit"
+            render={<Link href={`/dashboard/page-audit?url=${encodeURIComponent(r.url)}`} />}>
+            <FileSearch /> Audit
+          </Button>
         </div>
       </td>
     </tr>
