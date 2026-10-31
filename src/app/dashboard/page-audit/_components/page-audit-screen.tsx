@@ -16,7 +16,7 @@ import { AuditImages } from "./audit-images"
 import { AuditMetadata } from "./audit-metadata"
 import { PrioritizedFixes } from "./prioritized-fixes"
 
-type Tab = "fixes" | "checks" | "tags" | "images" | "speed"
+type Tab = "fixes" | "full" | "speed"
 
 function ResultSkeleton({ label }: { label: string }) {
   return (
@@ -59,6 +59,21 @@ function EmptyState() {
   )
 }
 
+/** A labelled section inside the "Full audit" tab, so checks, tags & content
+ * and images read as distinct parts of one report instead of separate tabs. */
+function Section({ icon: Icon, title, children }: {
+  icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-3">
+      <h3 className="flex items-center gap-2 text-sm font-semibold">
+        <Icon className="size-4 text-primary" /> {title}
+      </h3>
+      {children}
+    </section>
+  )
+}
+
 export default function PageAuditPage() {
   const screen = usePageAuditScreen()
   const { workspaceId, result, resultLoading, resultError, running, gscMatch } = screen
@@ -90,18 +105,26 @@ export default function PageAuditPage() {
                 <AuditHero result={result} />
                 <SegmentedTabs<Tab> value={tab} onChange={setTab} label="Audit sections" items={[
                   { value: "fixes", label: "Fix first", icon: Wrench, count: findings },
-                  { value: "checks", label: "All checks", icon: ListChecks, count: notPassing },
-                  { value: "tags", label: "Tags & content", icon: Tags },
-                  { value: "images", label: "Images", icon: ImageIcon, count: result.metrics.images_total ?? 0 },
+                  { value: "full", label: "Full audit", icon: ListChecks, count: notPassing },
                   { value: "speed", label: "Speed & search", icon: Zap },
                 ]} />
                 <div role="tabpanel" className="min-h-64 space-y-4">
                   {tab === "fixes" && <PrioritizedFixes result={result} />}
-                  {tab === "checks" && <AuditChecks result={result} />}
-                  {tab === "tags" && <AuditMetadata result={result} />}
-                  {tab === "images" && (result.metrics.image_details
-                    ? <AuditImages result={result} />
-                    : <p className="text-sm text-muted-foreground">This audit didn&apos;t record image details — run it again.</p>)}
+                  {tab === "full" && (
+                    <div className="space-y-8">
+                      <Section icon={ListChecks} title="All checks">
+                        <AuditChecks result={result} />
+                      </Section>
+                      <Section icon={Tags} title="Tags & content">
+                        <AuditMetadata result={result} />
+                      </Section>
+                      <Section icon={ImageIcon} title="Images">
+                        {result.metrics.image_details
+                          ? <AuditImages result={result} />
+                          : <p className="text-sm text-muted-foreground">This audit didn&apos;t record image details — run it again.</p>}
+                      </Section>
+                    </div>
+                  )}
                   {tab === "speed" && (
                     <>
                       <CoreWebVitals url={result.url} strategy={result.metrics.device === "mobile" ? "mobile" : "desktop"} initial={result.metrics.core_web_vitals ?? null} />

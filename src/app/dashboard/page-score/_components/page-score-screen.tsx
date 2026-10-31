@@ -5,7 +5,7 @@ import { GscSearchPerformance } from "@/components/dashboard/gsc-search-performa
 import { PageHeader } from "@/components/dashboard/page-header"
 import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Gauge, LayoutGrid, ListChecks, Zap } from "lucide-react"
+import { AlertTriangle, Gauge, LayoutGrid, ListChecks, Zap } from "lucide-react"
 import * as React from "react"
 import { usePageScoreScreen } from "../_hooks/use-page-score-screen"
 import { CategoryBreakdown } from "./category-breakdown"
@@ -29,7 +29,7 @@ function ResultSkeleton({ label }: { label: string }) {
 
 function EmptyState() {
   const items = [
-    { icon: Gauge, title: "One number, 0–100", text: "A weighted blend of technical, on-page, content, performance, links and structured data." },
+    { icon: Gauge, title: "One number, 0–100", text: "A content-led blend of content quality, on-page, technical, links and structured data. Speed and search data are shown as context, never mixed in." },
     { icon: LayoutGrid, title: "Category breakdown", text: "See each category's sub-score and open it for the exact checks and fixes." },
     { icon: ListChecks, title: "Tracked over time", text: "Every score is dated in Page history, so you can see what a change did." },
   ]
@@ -64,7 +64,7 @@ export default function PageScorePage() {
   return (
     <div className="space-y-6">
       <PageHeader title={<><Gauge className="size-5 text-primary" /> Overall Page Score</>}
-        description="One weighted 0–100 for a page, built from technical, on-page, content, performance, links and structured-data checks. Real search data is shown alongside, never mixed into the score." />
+        description="One content-led 0–100 for a page, built from content quality, on-page, technical, links and structured-data checks. Page speed and real search data are shown alongside as context, never mixed into the score." />
 
       <ScoreForm screen={screen} />
 
@@ -72,6 +72,17 @@ export default function PageScorePage() {
         : result ? (
           <div className="space-y-4">
             <ScoreHero result={result} />
+            {result.blockers && result.blockers.length > 0 && (
+              <div role="alert" className="flex gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                <div>
+                  <p className="font-medium">Why this score is capped</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                    {result.blockers.map((b, i) => <li key={i}>{b}</li>)}
+                  </ul>
+                </div>
+              </div>
+            )}
             <SegmentedTabs<Tab> value={tab} onChange={setTab} label="Score sections" items={[
               { value: "breakdown", label: "Breakdown", icon: LayoutGrid, count: toFix },
               { value: "performance", label: "Performance & search", icon: Zap },

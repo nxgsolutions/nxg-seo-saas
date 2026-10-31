@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   LineChart,
   Link2,
+  ListChecks,
   Settings,
   Sparkles,
   ScanSearch,
@@ -68,12 +69,20 @@ export const navSections: NavSection[] = [
   {
     title: "Content",
     items: [
-      { label: "Content Optimization", href: "/dashboard/content-optimization", icon: FileText },
+      // Flow: discover your pages first, then open one in the editor to optimize.
       { label: "Page Discovery", href: "/dashboard/page-discovery", icon: ScanSearch },
-      // One item surfaces the whole site→page→fix→track journey; its sub-pages
-      // render as the tab bar below (navTabGroups[0]). href points at the first
-      // step (Site score) so the menu click and the first tab agree.
-      { label: "Audit & Scores", href: "/dashboard/site-score", icon: Gauge, match: ["/dashboard/page-audit", "/dashboard/page-score", "/dashboard/page-optimization", "/dashboard/page-history"] },
+      { label: "Content Optimization", href: "/dashboard/content-optimization", icon: FileText },
+      // The score/audit pages are nested as two collapsible sidebar groups
+      // instead of a wide tab bar: "how am I scoring" vs "audit & fix a page".
+      { label: "Scores", icon: Gauge, children: [
+        { label: "Site score", href: "/dashboard/site-score", icon: Globe },
+        { label: "Page score", href: "/dashboard/page-score", icon: Target },
+      ] },
+      { label: "Page Audit", icon: ListChecks, children: [
+        { label: "Audit", href: "/dashboard/page-audit", icon: Gauge },
+        { label: "Fix plan", href: "/dashboard/page-optimization", icon: Wrench },
+        { label: "History", href: "/dashboard/page-history", icon: History },
+      ] },
       { label: "Title & Meta", href: "/dashboard/meta-tags", icon: Code2, match: ["/dashboard/serp-preview"] },
     ],
   },
@@ -119,14 +128,8 @@ export const navSections: NavSection[] = [
 /** A page inside a tab group; rendered by SectionTabs as a "cards" segmented tab. */
 export interface NavTab { label: string; href: string; icon: LucideIcon; description: string }
 export const navTabGroups: NavTab[][] = [
-  // Ordered as a new-user journey: broad → narrow → act → track.
-  [
-    { label: "Site score", href: "/dashboard/site-score", icon: Globe, description: "Start here — your whole site's SEO score" },
-    { label: "Overall score", href: "/dashboard/page-score", icon: Target, description: "Zoom in — one page's weighted score" },
-    { label: "Audit", href: "/dashboard/page-audit", icon: Gauge, description: "See what's wrong — full technical checklist" },
-    { label: "Fix plan", href: "/dashboard/page-optimization", icon: Wrench, description: "Act on it — what to fix first" },
-    { label: "Page history", href: "/dashboard/page-history", icon: History, description: "Track results — changes over time" },
-  ],
+  // The score/audit pages are now nested in the sidebar (see navSections),
+  // not a tab bar. Only Title & Meta still shares a small two-tab bar.
   [
     { label: "Meta tags", href: "/dashboard/meta-tags", icon: Code2, description: "Titles & descriptions" },
     { label: "Search preview", href: "/dashboard/serp-preview", icon: ScanSearch, description: "How it looks on Google" },

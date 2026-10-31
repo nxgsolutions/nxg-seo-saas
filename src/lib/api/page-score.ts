@@ -37,6 +37,9 @@ export interface PageScoreDetail {
   page_size_bytes: number
   keyword: string
   overall: number
+  /** Blocking problems that capped the score (noindex, non-200, no title/H1,
+   * severely thin). Empty when none. */
+  blockers?: string[]
   categories: ScoreCategory[]
   metrics: AuditMetrics
   performance_context?: PerformanceContext | null
