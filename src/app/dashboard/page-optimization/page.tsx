@@ -1,5 +1,6 @@
-import PageOptimizationPage from "./_components/page-optimization-screen"
+import { redirect } from "next/navigation"
 
+// The Fix plan is now the "Fix first" tab of the unified Page Audit page.
 export default function Page() {
-  return <PageOptimizationPage />
+  redirect("/dashboard/page-audit")
 }

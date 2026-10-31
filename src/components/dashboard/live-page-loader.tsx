@@ -84,8 +84,8 @@ export function LivePageLoader({ onLoaded, initialUrl, className }: {
         <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span>Loaded the live tags {timeAgo(loaded.at)}{loaded.result.changes.length ? ` · ${loaded.result.changes.length} change(s) since the last check` : ""}.</span>
           {loaded.result.page_id && (
-            <Link href={`/dashboard/page-history?page=${loaded.result.page_id}`} className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
-              <History className="size-3.5" /> Page history
+            <Link href="/dashboard/page-audit" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+              <History className="size-3.5" /> Page audit
             </Link>
           )}
         </p>

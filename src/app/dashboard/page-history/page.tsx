@@ -1,12 +1,6 @@
-import { Suspense } from "react"
+import { redirect } from "next/navigation"
 
-import PageHistoryPage from "./_components/page-history-screen"
-
-// Reads ?page= (useSearchParams), so it renders inside a Suspense boundary.
+// Page history is now the "History" tab of the unified Page Audit page.
 export default function Page() {
-  return (
-    <Suspense>
-      <PageHistoryPage />
-    </Suspense>
-  )
+  redirect("/dashboard/page-audit")
 }

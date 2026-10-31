@@ -1,5 +1,6 @@
-import SiteScorePage from "./_components/site-score-screen"
+import { redirect } from "next/navigation"
 
+// Site score now lives at the top of the unified Page Audit page.
 export default function Page() {
-  return <SiteScorePage />
+  redirect("/dashboard/page-audit")
 }

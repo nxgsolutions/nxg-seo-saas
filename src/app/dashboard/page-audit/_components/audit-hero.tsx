@@ -1,12 +1,10 @@
 "use client"
 
-import { ChangeList } from "@/components/dashboard/page-changes"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import type { AuditDetail } from "@/lib/api/audits"
 import { downloadAuditReport } from "@/lib/report/audit-report"
 import { cn, timeAgo } from "@/lib/utils"
-import { AlertTriangle, CheckCircle2, Clock, Download, ExternalLink, FileText, Gauge, History, Link2, XCircle } from "lucide-react"
-import Link from "next/link"
+import { AlertTriangle, CheckCircle2, Clock, Download, ExternalLink, FileText, Gauge, Link2, XCircle } from "lucide-react"
 import { ScoreGauge } from "./score-gauge"
 
 function band(score: number): { label: string; cls: string } {
@@ -32,14 +30,16 @@ export function AuditHero({ result }: { result: AuditDetail }) {
   const pass = result.checks.filter((c) => c.status === "pass").length
   const warn = result.checks.filter((c) => c.status === "warn").length
   const fail = result.checks.filter((c) => c.status === "fail").length
-  const b = band(result.score)
-  const changes = result.changes ?? []
+  // The headline is the genuine overall SEO score (falls back to the technical
+  // score on pre-0051 audits that don't carry one).
+  const score = result.overall ?? result.score
+  const b = band(score)
   const m = result.metrics
 
   return (
     <section className="rounded-2xl border bg-card p-4 shadow-xs sm:p-5" aria-label="Audit result">
       <div className="flex flex-col gap-5 md:flex-row md:items-center">
-        <ScoreGauge score={result.score} />
+        <ScoreGauge score={score} />
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", b.cls)}>{b.label}</span>
@@ -58,11 +58,6 @@ export function AuditHero({ result }: { result: AuditDetail }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 md:flex-col md:items-stretch">
-          {result.page_id && (
-            <Link href={`/dashboard/page-history?page=${result.page_id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-              <History className="size-4" /> Page history
-            </Link>
-          )}
           <Button variant="outline" size="sm" onClick={() => downloadAuditReport(result)}>
             <Download className="size-4" /> Export report
           </Button>
@@ -75,13 +70,6 @@ export function AuditHero({ result }: { result: AuditDetail }) {
         <Stat icon={Link2} label="Links (internal / external)" value={`${m.internal_links ?? 0} / ${m.external_links ?? 0}`} />
         <Stat icon={Gauge} label="HTML size" value={`${Math.round(result.page_size_bytes / 1024)} KB`} />
       </div>
-
-      {changes.length > 0 && (
-        <div className="mt-4 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
-          <p className="flex items-center gap-1.5 text-sm font-semibold"><History className="size-4 text-primary" /> Changed since the last check</p>
-          <ChangeList changes={changes} className="mt-1" />
-        </div>
-      )}
     </section>
   )
 }

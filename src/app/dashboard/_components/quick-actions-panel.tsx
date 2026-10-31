@@ -26,7 +26,7 @@ export function QuickActionsPanel() {
     <CardContent className="grid grid-cols-1 gap-2">
       {[
         { href: "/dashboard/page-audit", label: "Run a page audit", icon: Gauge },
-        { href: "/dashboard/page-optimization", label: "Optimize a page", icon: Zap },
+        { href: "/dashboard/page-audit", label: "Audit a page", icon: Zap },
         { href: "/dashboard/keyword-analysis", label: "Analyze keywords", icon: Search },
         { href: "/dashboard/ai-search", label: "AI visibility", icon: Sparkles },
       ].map((a) => (

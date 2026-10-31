@@ -7,22 +7,17 @@ import {
   FileBarChart,
   FileText,
   Gauge,
-  Globe,
-  History,
   KeyRound,
   LayoutDashboard,
   LineChart,
   Link2,
-  ListChecks,
   Settings,
   Sparkles,
   ScanSearch,
   Split,
   Swords,
-  Target,
   TrendingUp,
   Users,
-  Wrench,
   type LucideIcon,
 } from "lucide-react"
 
@@ -72,17 +67,10 @@ export const navSections: NavSection[] = [
       // Flow: discover your pages first, then open one in the editor to optimize.
       { label: "Page Discovery", href: "/dashboard/page-discovery", icon: ScanSearch },
       { label: "Content Optimization", href: "/dashboard/content-optimization", icon: FileText },
-      // The score/audit pages are nested as two collapsible sidebar groups
-      // instead of a wide tab bar: "how am I scoring" vs "audit & fix a page".
-      { label: "Scores", icon: Gauge, children: [
-        { label: "Site score", href: "/dashboard/site-score", icon: Globe },
-        { label: "Page score", href: "/dashboard/page-score", icon: Target },
-      ] },
-      { label: "Page Audit", icon: ListChecks, children: [
-        { label: "Audit", href: "/dashboard/page-audit", icon: Gauge },
-        { label: "Fix plan", href: "/dashboard/page-optimization", icon: Wrench },
-        { label: "History", href: "/dashboard/page-history", icon: History },
-      ] },
+      // One page: whole-site score + per-page audit (score, fixes, speed, history).
+      // The old site-score / page-score / fix-plan / history routes redirect here.
+      { label: "Page Audit", href: "/dashboard/page-audit", icon: Gauge,
+        match: ["/dashboard/site-score", "/dashboard/page-score", "/dashboard/page-optimization", "/dashboard/page-history"] },
       { label: "Title & Meta", href: "/dashboard/meta-tags", icon: Code2, match: ["/dashboard/serp-preview"] },
     ],
   },

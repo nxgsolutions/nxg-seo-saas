@@ -1,12 +1,6 @@
-import { Suspense } from "react"
+import { redirect } from "next/navigation"
 
-import PageScorePage from "./_components/page-score-screen"
-
-// Reads ?url= (useSearchParams), so it renders inside a Suspense boundary.
+// Page score is now the per-page detail of the unified Page Audit page.
 export default function Page() {
-  return (
-    <Suspense>
-      <PageScorePage />
-    </Suspense>
-  )
+  redirect("/dashboard/page-audit")
 }

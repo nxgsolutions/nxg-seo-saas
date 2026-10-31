@@ -1,6 +1,5 @@
 "use client"
 
-import { PageHeader } from "@/components/dashboard/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -127,7 +126,7 @@ function Distribution({ good, needs, poor, worst }: { good: number; needs: numbe
                   <span className="block truncate text-sm font-medium">{p.url.replace(/^https?:\/\//, "")}</span>
                   <span className="text-xs text-muted-foreground">{pageTypeLabel(p.page_type)}</span>
                 </span>
-                <Link href={`/dashboard/page-score?url=${encodeURIComponent(p.url)}`}
+                <Link href={`/dashboard/page-audit?url=${encodeURIComponent(p.url)}`}
                   className="shrink-0 text-xs font-medium text-primary hover:underline">Open</Link>
               </li>
             ))}
@@ -138,7 +137,10 @@ function Distribution({ good, needs, poor, worst }: { good: number; needs: numbe
   )
 }
 
-export default function SiteScorePage() {
+/** The whole-site score block — cards + run button, no page header. Embedded at
+ * the top of the unified Page Audit page (and reused anywhere a site overview is
+ * wanted). */
+export function SiteScoreOverview() {
   const s = useSiteScoreScreen()
   const { latest, running, job, jobError, error, domainName } = s
   const b = latest ? band(latest.overall) : null
@@ -153,11 +155,13 @@ export default function SiteScorePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={<><Globe className="size-5 text-primary" /> Site Score</>}
-        description="One SEO score for the whole website — a weighted blend of your pages plus site-wide technical signals. Scores a representative sample and reuses recent page scores."
-        actions={RunButton}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold"><Globe className="size-5 text-primary" /> Whole-site score</h2>
+          <p className="text-sm text-muted-foreground">A weighted blend of your pages plus site-wide technical signals (a representative sample).</p>
+        </div>
+        {RunButton}
+      </div>
 
       {running && (
         <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm" role="status" aria-busy="true">
