@@ -9,13 +9,14 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import * as React from "react"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import {
   useBacklinkAnalytics, useBacklinkDetails, useBacklinkOptions, useBacklinkProfile, useRefreshBacklinkProfile,
 } from "@/hooks/api/use-backlinks"
 
 export function useBacklinkTarget() {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const wid = activeWorkspace?.id ?? null
   const did = activeDomain?.id ?? null
   const params = useSearchParams()

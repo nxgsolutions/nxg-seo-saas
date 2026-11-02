@@ -33,11 +33,12 @@ export function useSiteScoreStatus(wid: string | null, did: string | null, enabl
   })
 }
 
-/** Start a run; seeds the status cache to 'running' so polling begins at once. */
+/** Start a run; seeds the status cache to 'running' so polling begins at once.
+ * Pass force to re-run before the weekly refresh window is up. */
 export function useStartSiteScore(wid: string | null, did: string | null) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => domainScoreApi.start(wid!, did!),
+    mutationFn: (force?: boolean) => domainScoreApi.start(wid!, did!, force ?? false),
     onSuccess: (job: DomainScoreJob) => {
       qc.setQueryData([...queryKeys.siteScore(wid ?? "", did ?? ""), "status"], job)
       void qc.invalidateQueries({ queryKey: queryKeys.siteScore(wid ?? "", did ?? "") })

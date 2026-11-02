@@ -3,14 +3,14 @@
 import { Globe, Plus } from "lucide-react"
 import * as React from "react"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain } from "@/hooks/dashboard"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { AddDomainDialog } from "@/components/dashboard/domain-dialogs"
 
 /** Read-only "which domain this page is about". Switching happens in the top bar. */
 export function CurrentDomain({ className }: { className?: string }) {
-  const { activeDomain } = useDashboard()
+  const activeDomain = useActiveDomain()
   if (!activeDomain) return null
   return (
     <span className={cn("inline-flex h-9 max-w-full items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm", className)}

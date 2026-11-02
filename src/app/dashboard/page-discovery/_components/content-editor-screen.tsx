@@ -4,7 +4,7 @@ import { ChecklistPanel } from "@/app/dashboard/content-optimization/_components
 import { CopyButton } from "@/app/dashboard/content-optimization/_components/copy-button"
 import { ScoreGauge } from "@/app/dashboard/page-audit/_components/score-gauge"
 import { NoDomain } from "@/components/dashboard/current-domain"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -48,7 +48,8 @@ const BACK_HREF = "/dashboard/page-discovery"
 export default function ContentEditorScreen() {
   const params = useSearchParams()
   const pageId = params.get("page")
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const wid = activeWorkspace?.id ?? null
   const did = activeDomain?.id ?? null
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace, useUser } from "@/hooks/dashboard"
 import { useMembers } from "@/hooks/api/use-members"
 import { ApiError, NetworkError } from "@/lib/api/client"
 import * as React from "react"
@@ -8,7 +8,8 @@ import { workspacesApi } from "@/lib/api/workspaces"
 
 export function useTeamScreen() {
 
-  const { user, activeWorkspace } = useDashboard()
+  const user = useUser()
+  const activeWorkspace = useActiveWorkspace()
 
   const workspaceId = activeWorkspace?.id ?? null
   // Members list (TanStack Query); setMembers edits the cached list.

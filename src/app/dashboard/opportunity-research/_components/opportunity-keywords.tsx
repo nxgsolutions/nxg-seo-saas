@@ -136,7 +136,7 @@ export function OpportunityKeywords({ wid, did }: { wid: string; did: string }) 
             <>No competitor opportunities yet. Add competitors on{" "}
               <a href="/dashboard/competitors" className="text-primary hover:underline">Competitors</a>{" "}
               and pull their rankings on{" "}
-              <a href="/dashboard/competitive-strategy" className="text-primary hover:underline">Competitive Strategy</a>.</>
+              <a href="/dashboard/competitors/keywords" className="text-primary hover:underline">Competitor Keywords</a>.</>
           )}
         </div>
       ) : (

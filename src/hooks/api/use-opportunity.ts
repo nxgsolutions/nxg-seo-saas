@@ -8,7 +8,7 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveMarket } from "@/hooks/dashboard/use-active-market"
 import { keywordReportsApi } from "@/lib/api/keyword-reports"
 import { opportunityApi, type KeywordQuery } from "@/lib/api/opportunity"
 import type { ListParams } from "@/lib/api/pagination"
@@ -18,7 +18,7 @@ const opp = queryKeys.opportunity
 
 /** One page of quick wins + every keyword's chart point. GSC is free but slow-ish → cached 5 min. */
 export function useQuickWins(wid: string, did: string, minVolume: number, list: ListParams) {
-  const { activeCountry, activeLanguage } = useDashboard()
+  const { country: activeCountry, language: activeLanguage } = useActiveMarket()
   return useQuery({
     queryKey: [...opp(wid, did), "quick-wins", activeCountry, activeLanguage, minVolume, list],
     queryFn: () => keywordReportsApi.strikingDistance(

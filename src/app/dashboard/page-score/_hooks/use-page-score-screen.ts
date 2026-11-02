@@ -1,6 +1,10 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useActiveWorkspace,
+  useWorkspaceDomains,
+} from "@/hooks/dashboard"
 import { useRunPageScore } from "@/hooks/api/use-page-score"
 import { useSitePages } from "@/hooks/api/use-pages"
 import { errorMessage } from "@/lib/api/client"
@@ -14,7 +18,9 @@ import { hostOf } from "../_lib/page-score-helpers"
  * record is in Page history); ?url= prefills the form (links from other pages).
  */
 export function usePageScoreScreen() {
-  const { activeWorkspace, domains, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const { domains } = useWorkspaceDomains()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const params = useSearchParams()
 

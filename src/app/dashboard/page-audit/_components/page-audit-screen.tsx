@@ -1,6 +1,5 @@
 "use client"
 
-import { SiteScoreOverview } from "@/app/dashboard/site-score/_components/site-score-screen"
 import { CategoryBreakdown } from "@/app/dashboard/page-score/_components/category-breakdown"
 import { ChangeList } from "@/components/dashboard/page-changes"
 import { CoreWebVitals } from "@/components/dashboard/core-web-vitals"
@@ -22,7 +21,9 @@ import { AuditForm } from "./audit-form"
 import { AuditHero } from "./audit-hero"
 import { AuditImages } from "./audit-images"
 import { AuditMetadata } from "./audit-metadata"
+import { DomainScoreCard } from "./domain-score-card"
 import { PrioritizedFixes } from "./prioritized-fixes"
+import { StoredScoreCard } from "./stored-score-card"
 
 type Tab = "overview" | "fixes" | "full" | "speed" | "history"
 
@@ -119,7 +120,8 @@ function EmptyState() {
 
 export default function PageAuditPage() {
   const screen = usePageAuditScreen()
-  const { workspaceId, result, resultLoading, resultError, running, gscMatch, history, openHistory } = screen
+  const { workspaceId, result, resultLoading, resultError, running, gscMatch, history, openHistory,
+    storedScore, storedLoading, reaudit } = screen
   const [tab, setTab] = React.useState<Tab>("overview")
   // A new result opens on "Overview" (adjust during render, no effect).
   const [seenId, setSeenId] = React.useState(result?.id)
@@ -135,10 +137,10 @@ export default function PageAuditPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={<><Gauge className="size-5 text-primary" /> Page Audit</>}
-        description="Your whole-site score, and a per-page audit — score, fixes, speed and history — all in one place." />
+        description="Check any page's SEO, and see your whole-site score — scores, fixes, speed and history, all in one place." />
 
-      {/* Whole-site overview */}
-      <Card><CardContent className="pt-6"><SiteScoreOverview /></CardContent></Card>
+      {/* Slim whole-site score (click it for the full breakdown) */}
+      <DomainScoreCard />
 
       {/* Pick a page (or paste any URL) and run an audit */}
       <AuditForm screen={screen} />
@@ -202,7 +204,9 @@ export default function PageAuditPage() {
               )}
             </div>
           </div>
-        ) : <EmptyState />}
+        ) : storedScore ? <StoredScoreCard score={storedScore} running={running} onReaudit={() => reaudit(storedScore.url)} />
+        : storedLoading ? <ResultSkeleton label="Loading saved score…" />
+        : <EmptyState />}
 
       {/* Already-audited pages */}
       <AuditedPages history={history} activeId={result?.id ?? null} onOpen={openHistory} />

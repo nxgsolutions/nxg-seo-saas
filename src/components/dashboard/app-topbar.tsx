@@ -4,8 +4,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronRight, FlaskConical, LogOut, Menu as MenuIcon, Settings as SettingsIcon } from "lucide-react"
 
-import { allNavItems, isActive } from "@/config/nav"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { breadcrumbTrail } from "@/config/nav"
+import { useActiveWorkspace, useLogout, useUser } from "@/hooks/dashboard"
 import { CommandPalette } from "@/components/dashboard/command-palette"
 import { DomainSwitcher } from "@/components/dashboard/domain-switcher"
 import { Button } from "@/components/ui/button"
@@ -20,16 +20,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-function pageTitle(pathname: string): string {
-  const match = allNavItems
-    .filter((i) => isActive(pathname, i))
-    .sort((a, b) => (b.href?.length ?? 0) - (a.href?.length ?? 0))[0]
-  return match?.label ?? "Dashboard"
-}
-
 export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
   const pathname = usePathname()
-  const { user, logout, activeWorkspace } = useDashboard()
+  const crumbs = breadcrumbTrail(pathname)
+  const user = useUser()
+  const logout = useLogout()
+  const activeWorkspace = useActiveWorkspace()
   const initials =
     `${user.first_name[0] ?? ""}${user.last_name[0] ?? ""}`.toUpperCase()
 
@@ -48,8 +44,29 @@ export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="flex min-w-0 items-center gap-2 text-sm">
         {/* First crumb = the domain every page works on (switch it here). */}
         <DomainSwitcher />
-        <ChevronRight className="hidden size-3 shrink-0 text-muted-foreground sm:block" />
-        <span className="hidden truncate rounded-md bg-primary/8 px-2 py-0.5 font-semibold text-primary sm:inline">{pageTitle(pathname)}</span>
+        {/* Then the page trail: a sidebar section, plus a child crumb for a
+            nested route (e.g. Competitor Analysis › Competitor Keywords). Every
+            crumb but the last links back to its page. */}
+        {crumbs.map((c, i) => {
+          const last = i === crumbs.length - 1
+          return (
+            <span key={c.href} className="hidden min-w-0 items-center gap-2 sm:flex">
+              <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
+              {last ? (
+                <span className="truncate rounded-md bg-primary/8 px-2 py-0.5 font-semibold text-primary">
+                  {c.label}
+                </span>
+              ) : (
+                <Link
+                  href={c.href}
+                  className="truncate rounded-md px-2 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  {c.label}
+                </Link>
+              )}
+            </span>
+          )
+        })}
         {activeWorkspace?.is_sandbox ? (
           <span
             title="Sandbox workspace — test data (DataForSEO Sandbox), kept separate from live"

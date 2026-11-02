@@ -5,7 +5,11 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useActiveWorkspace,
+  useReloadDomains,
+} from "@/hooks/dashboard"
 import { describeError, Modal } from "@/components/dashboard/domain-dialogs"
 import type { Domain } from "@/lib/api/workspaces"
 import { workspacesApi } from "@/lib/api/workspaces"
@@ -23,7 +27,9 @@ export function DeleteDomainDialog({ domain, onOpenChange }: {
   domain: Domain | null
   onOpenChange: (open: boolean) => void
 }) {
-  const { activeWorkspace, activeDomain, reloadDomains } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
+  const reloadDomains = useReloadDomains()
   const [typed, setTyped] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)

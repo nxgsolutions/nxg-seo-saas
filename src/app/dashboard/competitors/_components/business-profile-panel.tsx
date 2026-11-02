@@ -9,7 +9,7 @@
  * is. Renders nothing until a profile exists (i.e. discovery has run once).
  */
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace } from "@/hooks/dashboard"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -54,7 +54,7 @@ export function BusinessProfilePanel({
    *  sees the profile is being (re)built rather than a frozen or empty card. */
   discovering?: boolean
 }) {
-  const { activeWorkspace } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
   const workspaceId = activeWorkspace?.id ?? null
   const query = useBusinessProfile(workspaceId, domainId || null)
   const refresh = useRefreshBusinessProfile(workspaceId, domainId || null)

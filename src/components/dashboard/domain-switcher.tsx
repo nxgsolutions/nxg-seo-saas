@@ -5,7 +5,11 @@ import { Popover } from "@base-ui/react/popover"
 import { useRouter } from "next/navigation"
 import { Check, ChevronDown, Globe, Plus, Search, Settings2 } from "lucide-react"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useSetActiveDomain,
+  useWorkspaceDomains,
+} from "@/hooks/dashboard"
 import { AddDomainDialog } from "@/components/dashboard/domain-dialogs"
 import { cn } from "@/lib/utils"
 
@@ -13,7 +17,9 @@ import { cn } from "@/lib/utils"
  * Searchable, so a workspace with many domains stays easy to switch. */
 export function DomainSwitcher() {
   const router = useRouter()
-  const { domains, activeDomain, setActiveDomainId, domainsLoading } = useDashboard()
+  const { domains, loading: domainsLoading } = useWorkspaceDomains()
+  const activeDomain = useActiveDomain()
+  const setActiveDomainId = useSetActiveDomain()
   const [open, setOpen] = React.useState(false)
   const [adding, setAdding] = React.useState(false)
   const [q, setQ] = React.useState("")

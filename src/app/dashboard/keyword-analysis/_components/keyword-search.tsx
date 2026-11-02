@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useKeywordSearch, useRunKeywordSearch } from "@/hooks/api/use-keyword-search"
 import { errorMessage } from "@/lib/api/client"
@@ -24,7 +24,8 @@ export function KeywordSearch({ workspaceId, activeId, onShow, query }: {
   /** From the URL (?q=…) — the "+" keyword menu's "View more ideas" links here. */
   query?: string | null
 }) {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const resultsRef = React.useRef<HTMLDivElement>(null)
   const [seed, setSeed] = React.useState("")
   // Start from the workspace defaults (Settings → Workspace defaults); the user

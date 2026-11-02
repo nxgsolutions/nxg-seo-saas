@@ -4,7 +4,11 @@ import * as React from "react"
 import { Combobox } from "@base-ui/react/combobox"
 import { Check, ChevronsUpDown, FlaskConical, Plus, Search } from "lucide-react"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveWorkspace,
+  useSetActiveWorkspace,
+  useWorkspaces,
+} from "@/hooks/dashboard"
 import { CreateWorkspaceDialog } from "@/components/dashboard/create-workspace-dialog"
 import type { Workspace } from "@/lib/api/workspaces"
 import { cn } from "@/lib/utils"
@@ -24,7 +28,9 @@ function SandboxBadge() {
 }
 
 export function WorkspaceSwitcher() {
-  const { workspaces, activeWorkspace, setActiveWorkspaceId } = useDashboard()
+  const workspaces = useWorkspaces()
+  const activeWorkspace = useActiveWorkspace()
+  const setActiveWorkspaceId = useSetActiveWorkspace()
   const [creating, setCreating] = React.useState(false)
   const [open, setOpen] = React.useState(false)
 

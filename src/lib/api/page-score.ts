@@ -49,6 +49,20 @@ export interface PageScoreDetail {
   captured_at?: string | null
 }
 
+/** A page's most recent saved score, for opening it instantly without a fetch. */
+export interface StoredPageScore {
+  url: string
+  page_id: string | null
+  overall: number | null
+  audit_score: number | null
+  content_score: number | null
+  category_scores: Record<string, number>
+  checks: { id: string; label: string; status: CheckStatus }[]
+  device: string | null
+  source: string
+  captured_at: string
+}
+
 export const pageScoreApi = {
   run: (
     workspaceId: string,
@@ -59,4 +73,10 @@ export const pageScoreApi = {
       keyword: body.keyword || null,
       device: body.device ?? "desktop",
     }),
+
+  /** The latest saved score for a page (null when never scored). */
+  latest: (workspaceId: string, url: string) =>
+    apiClient.get<StoredPageScore | null>(
+      `/api/workspaces/${workspaceId}/page-scores/latest?url=${encodeURIComponent(url)}`,
+    ),
 }

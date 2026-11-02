@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { useAuditDetailLoader, useAuditHistory } from "@/hooks/api/use-page-audits"
 import { gscQueries } from "@/hooks/api/use-gsc"
 import { type AuditDetail } from "@/lib/api/audits"
@@ -13,7 +13,8 @@ import { hostOf } from "../_lib/reports-helpers"
 export function useReportsScreen() {
 
   // The workspace + website picked in the top bar.
-  const { activeWorkspace, activeDomain: domain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const domain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   // Cached data (shared with Page Audit / Search Performance) — building a report reuses it.
   const qc = useQueryClient()

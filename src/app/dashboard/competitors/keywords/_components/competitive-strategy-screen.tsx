@@ -1,9 +1,7 @@
 "use client"
 
-import Link from "next/link"
-import { Swords, Users } from "lucide-react"
+import { Swords } from "lucide-react"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
@@ -29,12 +27,9 @@ export default function CompetitiveStrategyPage({ initialCompetitor = null }: { 
   return (
     <div className="space-y-5">
       <PageHeader title={<> <Swords className="size-5 text-primary" /> Competitor Keywords </>}
-        description="What your competitors rank for, then who ranks for your tracked keywords."
-        actions={
-          <Button render={<Link href="/dashboard/competitors" />} variant="outline" size="sm">
-            <Users className="size-4" /> Tracked competitors
-          </Button>
-        } />
+        description="See the keywords your competitors rank for and how you compare."
+        backHref="/dashboard/competitors"
+        backLabel="Competitor Analysis" />
 
       {/* 1. Keywords competitors actually rank for — first, and independent of
           our SERP footprint (works for any domain, even with no SERP data). */}

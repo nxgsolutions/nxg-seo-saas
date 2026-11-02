@@ -1,4 +1,4 @@
-import { FileText, Image as ImageIcon, Link2, Play, Star } from "lucide-react"
+import { FileText, Globe, Image as ImageIcon, Link2, Play, Search, Sparkles, Star, Swords, TrendingUp } from "lucide-react"
 
 export const FEATURE_ICON: Record<string, typeof Link2> = {
   sitelinks: Link2,
@@ -38,6 +38,49 @@ export const TABS = [
 ] as const
 
 export const PAGE_SIZE = 8
+
+/** Where each action-plan keyword came from. The engine tags every item with a
+ *  stable `source_key`; this maps it to a plain-language label (no vendor/tool
+ *  names — see the no-developer-text-in-UI rule), an icon and a tone. */
+export type SourceKey = "gsc" | "own_rank" | "competitor_rank" | "serp_gap" | "research"
+
+export const SOURCE_META: Record<SourceKey, {
+  label: string        // full, friendly name for badges/chips
+  icon: typeof Search
+  className: string     // chip/badge tone
+  tip: string           // plain-language "what this source means"
+  /** The list view this source belongs to — a source_key only ever appears in one. */
+  view: "improve" | "gaps" | "targets"
+}> = {
+  gsc: {
+    label: "Google Search Console", icon: Search, view: "improve",
+    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+    tip: "Keywords your site already gets impressions and clicks for on Google.",
+  },
+  own_rank: {
+    label: "Your current rankings", icon: TrendingUp, view: "improve",
+    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    tip: "Keywords your site already ranks for, with the page that ranks.",
+  },
+  competitor_rank: {
+    label: "Competitors rank for this", icon: Swords, view: "gaps",
+    className: "bg-primary/10 text-primary",
+    tip: "A competitor ranks in Google's top 10 for this and your site doesn't.",
+  },
+  serp_gap: {
+    label: "Seen in search results", icon: Globe, view: "gaps",
+    className: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+    tip: "Spotted in a saved snapshot of Google's results for your tracked keywords.",
+  },
+  research: {
+    label: "Keyword research idea", icon: Sparkles, view: "targets",
+    className: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
+    tip: "A keyword-research suggestion with real demand that you aren't targeting yet.",
+  },
+}
+
+/** Order the source chips appear in. */
+export const SOURCE_ORDER: SourceKey[] = ["gsc", "own_rank", "competitor_rank", "serp_gap", "research"]
 
 export function kdColor(kd: number) {
   return kd >= 55

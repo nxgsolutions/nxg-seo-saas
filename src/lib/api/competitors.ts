@@ -104,6 +104,18 @@ export interface CompetitorDiscoverResponse {
   competitors: CuratedCompetitor[]
 }
 
+/** A candidate from a "find competitors again" preview, awaiting the user's
+ *  confirmation before it is merged into the tracked list. */
+export interface ProposedCompetitor {
+  domain: string
+  name: string | null
+  reason: string | null
+  confidence: string | null
+  match_score: number | null
+  /** Already on the user's list (shown as such, not added again). */
+  already_tracked: boolean
+}
+
 /** Live status of an async discovery run (polled for step-by-step progress). */
 export interface DiscoveryJob {
   job_id: string
@@ -113,6 +125,8 @@ export interface DiscoveryJob {
   total_steps: number
   count: number | null
   error: string | null
+  /** Preview runs only: candidates to confirm before merging (null otherwise). */
+  proposed: ProposedCompetitor[] | null
 }
 
 export interface CuratedCompetitorsResponse {
@@ -151,6 +165,22 @@ export const competitorsApi = {
   add: (wid: string, did: string, domain: string, label?: string) =>
     apiClient.post<CuratedCompetitor>(`${base(wid, did)}/list`, { domain, label }),
 
+  /** Add several competitors at once (confirming a "find again" preview). */
+  addBulk: (
+    wid: string,
+    did: string,
+    competitors: Array<{
+      domain: string
+      label?: string | null
+      reason?: string | null
+      confidence?: string | null
+      match_score?: number | null
+    }>,
+  ) =>
+    apiClient.post<CuratedCompetitorsResponse>(`${base(wid, did)}/list/bulk`, {
+      competitors,
+    }),
+
   remove: (wid: string, did: string, competitorId: string) =>
     apiClient.del<void>(`${base(wid, did)}/list/${competitorId}`),
 
@@ -160,12 +190,19 @@ export const competitorsApi = {
   discover: (
     wid: string,
     did: string,
-    opts: { targetDomain?: string; limit?: number; extraServices?: string[] } = {}
+    opts: {
+      targetDomain?: string
+      limit?: number
+      extraServices?: string[]
+      /** Preview: find candidates without changing the list, for a confirm-merge. */
+      preview?: boolean
+    } = {}
   ) =>
     apiClient.post<DiscoveryJob>(`${base(wid, did)}/discover`, {
       target_domain: opts.targetDomain || null,
       limit: opts.limit ?? 10,
       extra_services: opts.extraServices && opts.extraServices.length ? opts.extraServices : null,
+      preview: opts.preview ?? false,
     }),
 
   /** Poll a discovery job for live step progress. */

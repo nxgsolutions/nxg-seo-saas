@@ -21,10 +21,11 @@ export function useActionPlan(wid: string, did: string) {
   })
 }
 
-export function useActionItems(wid: string, did: string, type: ActionType | null, list: ListParams) {
+export function useActionItems(wid: string, did: string, type: ActionType | null, list: ListParams,
+                               filters: { source?: string | null; saved?: boolean } = {}) {
   return useQuery({
-    queryKey: [...queryKeys.actionPlan(wid, did), "items", type, list],
-    queryFn: () => actionPlanApi.items(wid, did, type!, list),
+    queryKey: [...queryKeys.actionPlan(wid, did), "items", type, list, filters],
+    queryFn: () => actionPlanApi.items(wid, did, type!, list, filters),
     enabled: type !== null,
     placeholderData: keepPreviousData,
   })

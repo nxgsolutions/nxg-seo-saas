@@ -1,7 +1,7 @@
 "use client"
 
 import { CompetitorRankChart } from "@/components/charts/lazy"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace } from "@/hooks/dashboard"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,7 +21,7 @@ import { Loader2, RefreshCw, TrendingUp } from "lucide-react"
 import * as React from "react"
 
 export function CompetitorRankTrendPanel({ domainId }: { domainId: string }) {
-  const { activeWorkspace } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
   const workspaceId = activeWorkspace?.id ?? null
   const did = domainId || null
   const history = useCompetitorHistory(workspaceId, did)

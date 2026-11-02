@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { errorMessage } from "@/lib/api/client"
 import { opportunityApi, type CompetitorAnalytics, type StrategyScope } from "@/lib/api/opportunity"
 import { queryKeys } from "@/lib/query/keys"
@@ -17,7 +17,8 @@ import * as React from "react"
  */
 export function useCompetitiveStrategyScreen(initialCompetitor: string | null = null) {
   // The workspace + website picked in the top bar (context only — no extra API calls).
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const activeDomainId = activeDomain?.id ?? null
   const wid = workspaceId ?? ""

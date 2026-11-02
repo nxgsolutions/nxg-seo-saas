@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace } from "@/hooks/dashboard"
 import {
   useCancelSubscription, usePlans, useSelectPlan, useSubscription,
 } from "@/hooks/api/use-billing"
@@ -12,7 +12,7 @@ import { statusMeta } from "../_lib/billing-helpers"
 
 export function useBillingScreen() {
 
-  const { activeWorkspace } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
 
   const workspaceId = activeWorkspace?.id ?? null
 

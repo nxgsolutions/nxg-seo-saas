@@ -35,7 +35,7 @@ src/
 - **Reading data**: use a `hooks/api` query. Keys come from `lib/query/keys.ts` and always start with `["ws", workspaceId, …]` (plus `"domain", domainId` for per-website data), so one workspace's cache never leaks into another.
 - **Changing data**: use a mutation that updates or invalidates exactly the cached data it changes.
 - **Lists**: paginate on the server (`page`, `page_size`, `sort`, `order`, `q` → `rows` + `pagination`). Use `placeholderData: keepPreviousData`, dim rows while the next page loads, show `TableSkeleton` only on the first load, and render `Pager` — the layout must not jump.
-- **Workspace / website ids**: read them from `useDashboard()`; don't load extra resources just to get ids.
+- **Workspace / website ids**: read them from the `@/hooks/dashboard` hooks (`useActiveWorkspace`, `useActiveDomain`, `useActiveMarket`, …); don't load extra resources just to get ids. Selection state lives in Redux (`src/store`); user/workspaces/domains are TanStack Query.
 - **Paid APIs** (DataForSEO): only on an explicit click with the price shown — never in an effect or on page load.
 - **Page history**: any feature that fetches a website page records a snapshot on the server (`page_history_service.record` / `safe_record`); on the client, invalidate `queryKeys.pages.all(wid)` after such a run so Page history stays current.
 

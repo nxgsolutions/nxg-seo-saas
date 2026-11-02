@@ -8,6 +8,7 @@ export interface DomainScoreJob {
   step_label: string | null
   pages_total: number | null
   pages_scored: number
+  pages_failed: number
   error: string | null
   result_id: string | null
   started_at: string
@@ -54,12 +55,16 @@ export interface DomainScoreView {
   latest: DomainScore | null
   history: DomainScoreTrendPoint[]
   running: DomainScoreJob | null
+  /** Whether a fresh whole-site score may run now, and when the next one is due. */
+  can_refetch: boolean
+  next_refetch_at: string | null
 }
 
 const base = (wid: string, did: string) => `/api/workspaces/${wid}/domains/${did}/site-score`
 
 export const domainScoreApi = {
-  start: (wid: string, did: string) => apiClient.post<DomainScoreJob>(base(wid, did), {}),
+  start: (wid: string, did: string, force = false) =>
+    apiClient.post<DomainScoreJob>(`${base(wid, did)}${force ? "?force=true" : ""}`, {}),
   status: (wid: string, did: string) => apiClient.get<DomainScoreJob | null>(`${base(wid, did)}/status`),
   get: (wid: string, did: string) => apiClient.get<DomainScoreView>(base(wid, did)),
 }

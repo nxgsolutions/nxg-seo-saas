@@ -463,6 +463,8 @@ export interface ActionItem {
   action: string | null
   reason: string | null
   source: string | null
+  /** Stable origin key: gsc | own_rank | competitor_rank | serp_gap | research. */
+  source_key: string | null
   tracked: boolean
 }
 
@@ -472,6 +474,10 @@ export interface ActionPlan {
   generated_at: string
   target_position: number
   counts: { improve: number; gaps: number; targets: number }
+  /** how many keywords per origin (source_key -> count) */
+  source_counts: Record<string, number>
+  /** keywords the user manually tracks */
+  saved_count: number
   /** top actions' potential, excluding very hard keywords (difficulty >= hard_kd) */
   total_gain: number
   hard_kd: number
@@ -493,10 +499,13 @@ export const actionPlanApi = {
     apiClient.get<ActionPlan>(`${base(wid, did)}/action-plan`),
 
   /** ONE page of a full list (improve | gap | target). Default order = the
-   * plan's priority; sort: gain | volume | difficulty | position | keyword. */
-  items: (wid: string, did: string, type: ActionType, list: ListParams = {}) =>
+   * plan's priority; sort: gain | volume | difficulty | position | keyword.
+   * `source` keeps one origin; `saved` keeps manually-tracked keywords only. */
+  items: (wid: string, did: string, type: ActionType, list: ListParams = {},
+          filters: { source?: string | null; saved?: boolean } = {}) =>
     apiClient.get<Paged<ActionItem>>(`${base(wid, did)}/action-plan/items`, {
-      params: listParams({ ...list, order: list.order ?? "desc" }, { type }),
+      params: listParams({ ...list, order: list.order ?? "desc" },
+        { type, source: filters.source || undefined, saved: filters.saved || undefined }),
     }),
 
   /** Add a keyword to the domain's tracked keywords (idempotent). */

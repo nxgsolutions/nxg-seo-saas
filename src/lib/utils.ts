@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /** Compact relative time, e.g. "just now", "5m ago", "3h ago", "2d ago". */
+/** Whole days from now until an ISO timestamp, or null if it's already past. */
+export function daysUntil(iso: string | null): number | null {
+  if (!iso) return null
+  const ms = new Date(iso).getTime() - Date.now()
+  return ms > 0 ? Math.ceil(ms / 86_400_000) : null
+}
+
 export function timeAgo(iso: string): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ""

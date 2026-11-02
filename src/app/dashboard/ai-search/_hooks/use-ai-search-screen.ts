@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain } from "@/hooks/dashboard"
 import { type AiSearchResult } from "@/lib/api/ai"
 import { ApiError, NetworkError } from "@/lib/api/client"
 import * as React from "react"
@@ -8,7 +8,7 @@ import { aiApi } from "@/lib/api/ai"
 
 export function useAiSearchScreen() {
 
-  const { activeDomain } = useDashboard()
+  const activeDomain = useActiveDomain()
 
   const [query, setQuery] = React.useState("")
 

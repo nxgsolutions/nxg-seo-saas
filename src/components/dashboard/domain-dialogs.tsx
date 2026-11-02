@@ -7,7 +7,11 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { normalizeDomain } from "@/components/dashboard/competitor-combobox"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveWorkspace,
+  useReloadDomains,
+  useSetActiveDomain,
+} from "@/hooks/dashboard"
 import { ApiError, NetworkError } from "@/lib/api/client"
 import { workspacesApi } from "@/lib/api/workspaces"
 import { cn } from "@/lib/utils"
@@ -91,7 +95,9 @@ export function DomainField({ value, onChange, disabled, autoFocus, invalid }: {
 
 /** "Add website" — adds a site to the active workspace and switches to it. */
 export function AddDomainDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { activeWorkspace, reloadDomains, setActiveDomainId } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const reloadDomains = useReloadDomains()
+  const setActiveDomainId = useSetActiveDomain()
   const [text, setText] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)

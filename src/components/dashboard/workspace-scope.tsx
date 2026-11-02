@@ -2,7 +2,11 @@
 
 import * as React from "react"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useActiveWorkspace,
+  useWorkspaceDomains,
+} from "@/hooks/dashboard"
 
 /**
  * Remounts the page whenever the active workspace OR website changes.
@@ -15,7 +19,9 @@ import { useDashboard } from "@/components/dashboard/dashboard-context"
  * never start on "no website" and then jump.
  */
 export function WorkspaceScope({ children }: { children: React.ReactNode }) {
-  const { activeWorkspace, activeDomain, domainsLoading } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
+  const { loading: domainsLoading } = useWorkspaceDomains()
   if (domainsLoading) {
     return (
       <div className="flex justify-center py-16">

@@ -7,7 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ColumnHelp, HeaderWithHelp } from "@/components/ui/column-help"
 import { SearchInput } from "@/components/ui/search-input"
-import { kdBand } from "../_lib/opportunity-research-helpers"
+import { kdBand, SOURCE_META, type SourceKey } from "../_lib/opportunity-research-helpers"
 import { aiOverviewApi } from "@/lib/api/ai-overview"
 import { Pager } from "@/components/ui/pager"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,7 +21,7 @@ import { COLUMN_HELP } from "@/lib/column-help"
 import { downloadCsv } from "@/lib/report/csv"
 import { cn } from "@/lib/utils"
 import {
-  ArrowRight, Check, Download, ExternalLink, FileSearch, Loader2,
+  ArrowRight, Bookmark, Check, Download, ExternalLink, FileSearch, Loader2,
   PenLine, Plus, Sparkles, Swords, TrendingUp, Wand2,
 } from "lucide-react"
 import Link from "next/link"
@@ -41,13 +41,10 @@ const TYPE_META: Record<ActionType, { label: string; icon: typeof TrendingUp; cl
 const PAGE_SIZE = 15
 const num = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString())
 
-function TypeBadge({ type }: { type: ActionType }) {
-  const m = TYPE_META[type]
-  return (
-    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium", m.className)}>
-      <m.icon className="size-3" aria-hidden="true" />{m.label}
-    </span>
-  )
+/** Small amber bookmark marking a keyword the user manually tracks ("Saved"). */
+function SavedMark() {
+  return <Bookmark className="size-3.5 shrink-0 fill-amber-500/20 text-amber-600 dark:text-amber-400"
+    aria-label="Saved keyword" role="img" />
 }
 
 /** Difficulty as a colour-coded chip (green = easy, amber = medium, red = hard). */
@@ -133,6 +130,8 @@ function Actions({ item, tracked, onTrack, busy, open, onDetails }: {
  */
 export function ActionPlan({ wid, did }: { wid: string; did: string }) {
   const [view, setView] = React.useState<View>("top")
+  // A single refinement on top of the list tabs: "saved only" (manually tracked).
+  const [savedOnly, setSavedOnly] = React.useState(false)
   const [q, setQ] = React.useState("")
   const debouncedQ = useDebouncedValue(q)
   const [page, setPage] = React.useState(1)
@@ -151,7 +150,7 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
   const plan = useActionPlan(wid, did)
   const listType: ActionType | null = view === "top" ? null : VIEW_TYPE[view]
   const listParams = { page, pageSize: PAGE_SIZE, q: debouncedQ }
-  const items = useActionItems(wid, did, listType, listParams)
+  const items = useActionItems(wid, did, listType, listParams, { saved: savedOnly })
   const trackMutation = useTrackKeyword(wid, did)
   const tracking = trackMutation.isPending ? trackMutation.variables : null
 
@@ -177,7 +176,16 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
 
   const s = data.sources
   const pageRows = items.data?.rows ?? []
-  const pick = (v: View) => { setView(v); setPage(1); setQ("") }
+  // Switching a list tab clears the "saved only" refinement.
+  const pick = (v: View) => { setView(v); setSavedOnly(false); setPage(1); setQ("") }
+  const toggleSaved = () => {
+    const next = !savedOnly
+    setSavedOnly(next); setPage(1); setQ("")
+    // "Saved" spans all lists but each list is paged on its own, so land on
+    // Improve — where manually-tracked keywords almost always live — instead of
+    // leaving the user on the Top 10 overview (which isn't a filterable list).
+    if (next && view === "top") setView("improve")
+  }
 
   /** One action row, shared by the Detailed "Top" list and the Simple effort
    *  lanes so both read identically. `rank` shows the numbered badge (Top list). */
@@ -201,8 +209,8 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
         )}
         <div className="min-w-[220px] flex-1 space-y-1 xl:min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <TypeBadge type={i.type} />
             <span className="ds-item">{i.keyword}</span>
+            {i.tracked && <SavedMark />}
           </div>
           <p className="ds-meta">{i.reason}</p>
         </div>
@@ -237,11 +245,16 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
     setExporting(true)
     try {
       const rows = view === "top" ? data!.top : await fetchAllPages((p, size) =>
-        actionPlanApi.items(wid, did, VIEW_TYPE[view as Exclude<View, "top">], { q: debouncedQ, page: p, pageSize: size }))
+        actionPlanApi.items(wid, did, VIEW_TYPE[view as Exclude<View, "top">], { q: debouncedQ, page: p, pageSize: size },
+          { saved: savedOnly }))
+      const sourceLabel = (i: ActionItem) => {
+        const k = i.source_key && i.source_key in SOURCE_META ? SOURCE_META[i.source_key as SourceKey].label : ""
+        return i.tracked ? (k ? `${k} · Saved` : "Saved") : k
+      }
       downloadCsv(`action-plan-${view}`,
-        ["Type", "Keyword", "Volume", "Difficulty", "Your position", "Your page", "Competitor", "Competitor position",
+        ["Type", "Keyword", "Source", "Volume", "Difficulty", "Your position", "Your page", "Competitor", "Competitor position",
           "Competitor page", "Potential visits/mo", "Next step", "Why"],
-        rows.map((i) => [i.type, i.keyword, i.volume ?? "", i.difficulty ?? "", i.position ?? "", i.url ?? "",
+        rows.map((i) => [i.type, i.keyword, sourceLabel(i), i.volume ?? "", i.difficulty ?? "", i.position ?? "", i.url ?? "",
           i.competitor ?? "", i.competitor_position ?? "", i.competitor_url ?? "", i.gain, i.action ?? "", i.reason ?? ""]))
     } catch (err) {
       toast.error(errorMessage(err, "Could not export."))
@@ -331,24 +344,40 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
         {s.competitors_with_rankings.length} of {s.competitors.length} competitors
         {s.competitors_with_rankings.length ? ` (${s.competitors_with_rankings.join(", ")})` : ""}.
         {s.competitors_with_rankings.length < s.competitors.length && (
-          <> More competitor data → more gaps: <Link href="/dashboard/competitive-strategy" className="text-primary hover:underline">Competitive Strategy</Link>.</>
+          <> More competitor data → more gaps: <Link href="/dashboard/competitors/keywords" className="text-primary hover:underline">Competitor Keywords</Link>.</>
         )}
       </p>
 
       <Card>
         <CardContent className="space-y-4 pt-6">
-          {/* Which list to show + export */}
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Recommended keyword actions</h3>
+            <ColumnHelp label="How this list is built"
+              text="We gather keywords from your Google Search Console, your current rankings, what competitors rank for, saved snapshots of Google's results, and keyword research. For each one we estimate the extra monthly visits you'd gain by reaching the top of Google, then show the easiest, highest-impact wins first. Nothing here leaves your account." />
+          </div>
+
+          {/* One filter row: which list to show (+ a Saved refinement), search, export. */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-1 rounded-lg border border-border p-0.5 text-xs">
-              {([["top", "Top 10"], ["improve", `Improve (${data.counts.improve})`],
-                ["gaps", `Competitor gaps (${data.counts.gaps})`], ["targets", `New targets (${data.counts.targets})`]] as const)
-                .map(([v, label]) => (
-                  <button key={v} type="button" onClick={() => pick(v)}
-                    className={cn("rounded-md px-2.5 py-1.5 font-medium transition-colors",
-                      view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                    {label}
-                  </button>
-                ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap gap-1 rounded-lg border border-border p-0.5 text-xs">
+                {([["top", "Top 10"], ["improve", `Improve (${data.counts.improve})`],
+                  ["gaps", `Competitor gaps (${data.counts.gaps})`], ["targets", `New targets (${data.counts.targets})`]] as const)
+                  .map(([v, label]) => (
+                    <button key={v} type="button" onClick={() => pick(v)}
+                      className={cn("rounded-md px-2.5 py-1.5 font-medium transition-colors",
+                        view === v && !savedOnly ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+                      {label}
+                    </button>
+                  ))}
+              </div>
+              {data.saved_count > 0 && (
+                <button type="button" onClick={toggleSaved} aria-pressed={savedOnly}
+                  title="Keywords you manually saved / track"
+                  className={cn("inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                    savedOnly ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+                  <Bookmark className="size-3.5" aria-hidden="true" />Saved ({data.saved_count})
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {view !== "top" && <SearchInput value={q} onValueChange={setQ} placeholder="Filter keywords…" className="w-52" />}
@@ -366,7 +395,7 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
               </p>
               <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2 text-left">
                 {[
-                  { href: "/dashboard/competitive-strategy", label: "Pull your keyword rankings" },
+                  { href: "/dashboard/competitors/keywords", label: "Pull your keyword rankings" },
                   { href: "/dashboard/competitors", label: "Add competitors (for gaps)" },
                   { href: "/dashboard/settings", label: "Connect your search data" },
                   { href: "/dashboard/keyword-analysis", label: "Research keywords" },
@@ -387,7 +416,7 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
           ) : !items.data ? (
             <div className="rounded-lg border border-border"><TableSkeleton rows={8} columns={6} label="Loading actions…" /></div>
           ) : items.data.pagination.total === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">Nothing here{q ? " for this filter" : " yet"}.</p>
+            <p className="py-10 text-center text-sm text-muted-foreground">Nothing here{q || savedOnly ? " for this filter" : " yet"}.</p>
           ) : (
             <>
               <div className={cn("overflow-x-auto rounded-lg border border-border transition-opacity", items.isPlaceholderData && "opacity-60")}>
@@ -408,7 +437,12 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
                     {pageRows.map((i) => (
                       <React.Fragment key={i.keyword}>
                       <tr className={cn("transition-colors hover:bg-muted/40", isOpen(i) && "bg-primary/[0.04]")}>
-                        <td className="max-w-[260px] px-4 py-2.5 font-medium"><span className="block truncate" title={i.keyword}>{i.keyword}</span></td>
+                        <td className="max-w-[260px] px-4 py-2.5 font-medium">
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate" title={i.keyword}>{i.keyword}</span>
+                            {i.tracked && <SavedMark />}
+                          </span>
+                        </td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{num(i.volume)}</td>
                         <td className="px-3 py-2.5"><div className="flex justify-end"><Kd kd={i.difficulty} /></div></td>
                         {view === "improve" && <td className="px-3 py-2.5"><div className="flex justify-end"><PosPill pos={i.position} /></div></td>}

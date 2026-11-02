@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { usePagePerformance, usePageTimeline, useSitePages } from "@/hooks/api/use-pages"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -16,7 +16,8 @@ export type PageScope = "site" | "other" | "all"
  * reopens it), its timeline and its search performance.
  */
 export function usePageHistoryScreen() {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const router = useRouter()
   const pathname = usePathname()

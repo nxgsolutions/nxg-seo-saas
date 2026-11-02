@@ -4,7 +4,11 @@ import { IntegrationsPanel } from "@/components/dashboard/integrations-panel"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { CreateWorkspaceDialog } from "@/components/dashboard/create-workspace-dialog"
 import { CategorySelect } from "@/components/dashboard/category-select"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useActiveWorkspace,
+  useReloadDomains,
+} from "@/hooks/dashboard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -103,7 +107,9 @@ export default function SettingsPage() {
  * site (categories are per-domain, not per-workspace).
  */
 function DomainCategorySection() {
-  const { activeWorkspace, activeDomain, reloadDomains } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
+  const reloadDomains = useReloadDomains()
   const [category, setCategory] = React.useState<string | null>(activeDomain?.category_id ?? null)
   const [busy, setBusy] = React.useState(false)
   const [saved, setSaved] = React.useState(false)

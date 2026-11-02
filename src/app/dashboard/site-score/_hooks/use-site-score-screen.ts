@@ -1,13 +1,14 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { useSiteScore, useSiteScoreStatus, useStartSiteScore } from "@/hooks/api/use-domain-score"
 import { errorMessage } from "@/lib/api/client"
 import * as React from "react"
 
 /** Whole-site score state for the active website: start a run, track progress, read the result. */
 export function useSiteScoreScreen() {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const domainId = activeDomain?.id ?? null
 
@@ -50,5 +51,7 @@ export function useSiteScoreScreen() {
     latest, history: view?.history ?? [], running, job, jobError,
     error, setError, start, starting: startMutation.isPending,
     distribution, worstPages,
+    canRefetch: view?.can_refetch ?? true,
+    nextRefetchAt: view?.next_refetch_at ?? null,
   }
 }

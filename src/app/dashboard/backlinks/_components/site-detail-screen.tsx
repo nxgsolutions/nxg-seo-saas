@@ -8,7 +8,7 @@ import { toast } from "sonner"
 
 import { NoDomain } from "@/components/dashboard/current-domain"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Card } from "@/components/ui/card"
 import { Pager } from "@/components/ui/pager"
 import { SearchInput } from "@/components/ui/search-input"
@@ -16,7 +16,7 @@ import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useRefreshSiteDetail, useSiteDetail } from "@/hooks/api/use-backlinks"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { cn } from "@/lib/utils"
-import { compact } from "../../competitive-strategy/_lib/competitive-strategy-helpers"
+import { compact } from "../../competitors/keywords/_lib/competitive-strategy-helpers"
 import { DataStatus, FetchButton, Stat } from "./fetch-controls"
 
 const PAGE_SIZE = 20
@@ -30,7 +30,8 @@ export default function SiteDetailScreen() {
   const params = useSearchParams()
   const host = params.get("host")
   const target = params.get("target")
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const wid = activeWorkspace?.id ?? null
   const did = activeDomain?.id ?? null
   const [search, setSearch] = React.useState("")

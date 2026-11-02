@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace, useReloadDomains } from "@/hooks/dashboard"
 import { describeError, Modal } from "@/components/dashboard/domain-dialogs"
 import { COUNTRIES, LANGUAGES, labelFor } from "@/app/dashboard/settings/_lib/settings-helpers"
 import { useCategories, useCreateCategory } from "@/hooks/api/use-categories"
@@ -28,7 +28,8 @@ export function EditDomainDialog({ domain, onOpenChange }: {
   domain: Domain | null
   onOpenChange: (open: boolean) => void
 }) {
-  const { activeWorkspace, reloadDomains } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const reloadDomains = useReloadDomains()
   const wsCountry = labelFor(COUNTRIES, activeWorkspace?.default_country ?? "in", "India")
   const wsLanguage = labelFor(LANGUAGES, activeWorkspace?.default_language ?? "en", "English")
   const { data: categories = [] } = useCategories()

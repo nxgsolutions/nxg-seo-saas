@@ -29,7 +29,9 @@ function AlertDialogContent({ className, children, ...props }: Primitive.Popup.P
         data-slot="alert-dialog-content"
         className={cn(
           // .dashboard-shell: the popup renders in a portal, outside the dashboard's theme scope.
-          "dashboard-shell fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4",
+          // flex (not grid): grid children default to min-width:auto and can push wide
+          // content (e.g. a list of rows) past the popup edge; flex-col children size to it.
+          "dashboard-shell fixed left-1/2 top-1/2 z-50 flex w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4",
           "rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-2xl outline-none",
           "transition-[opacity,scale] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
           className,

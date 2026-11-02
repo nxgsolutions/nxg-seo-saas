@@ -1,6 +1,11 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useActiveWorkspace,
+  useUser,
+  useWorkspaceDomains,
+} from "@/hooks/dashboard"
 import { useGscStatus } from "@/hooks/api/use-gsc"
 import { useMembers } from "@/hooks/api/use-members"
 import { useAuditHistory } from "@/hooks/api/use-page-audits"
@@ -14,7 +19,10 @@ const NO_AUDITS: AuditSummary[] = [] // stable empty list (keeps memos stable)
 
 export function useOverviewScreen() {
 
-  const { user, activeWorkspace, domains, activeDomain, domainsLoading } = useDashboard()
+  const user = useUser()
+  const activeWorkspace = useActiveWorkspace()
+  const { domains, loading: domainsLoading } = useWorkspaceDomains()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
 
   // Cached, shared with the KPI hero / Search Performance (TanStack Query).

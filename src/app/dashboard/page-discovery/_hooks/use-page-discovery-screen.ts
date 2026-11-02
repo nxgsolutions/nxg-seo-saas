@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import {
   useCancelDiscovery,
   useDiscoverPages,
@@ -11,7 +11,8 @@ import {
 /** Page Discovery screen state: ids (from the top bar), the latest scan status,
  * KPI summary, and the "Discover" action. Filters/pagination live in the table. */
 export function usePageDiscoveryScreen() {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const wid = activeWorkspace?.id ?? null
   const did = activeDomain?.id ?? null
 

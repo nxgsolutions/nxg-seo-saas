@@ -15,7 +15,6 @@ import {
   Sparkles,
   ScanSearch,
   Split,
-  Swords,
   TrendingUp,
   Users,
   type LucideIcon,
@@ -54,10 +53,10 @@ export const navSections: NavSection[] = [
       // Saved Keywords: a shortlist you save (no rank tracking). Paired with the
       // "Save keyword" action in components/keywords/keyword-actions-menu.tsx.
       { label: "Saved Keywords", href: "/dashboard/my-keywords", icon: Bookmark },
-      // Competitor Analysis (your tracked list) and Competitor Keywords (what they
-      // rank for) are two standalone pages — no shared tab bar between them.
+      // Competitor Analysis is the single entry point. Clicking a competitor
+      // opens its keyword detail at the NESTED route /dashboard/competitors/keywords,
+      // which this item highlights automatically via the prefix match on its href.
       { label: "Competitor Analysis", href: "/dashboard/competitors", icon: Users },
-      { label: "Competitor Keywords", href: "/dashboard/competitive-strategy", icon: Swords },
       { label: "Action Plan", href: "/dashboard/opportunity-research", icon: TrendingUp },
     ],
   },
@@ -67,8 +66,9 @@ export const navSections: NavSection[] = [
       // Flow: discover your pages first, then open one in the editor to optimize.
       { label: "Page Discovery", href: "/dashboard/page-discovery", icon: ScanSearch },
       { label: "Content Optimization", href: "/dashboard/content-optimization", icon: FileText },
-      // One page: whole-site score + per-page audit (score, fixes, speed, history).
-      // The old site-score / page-score / fix-plan / history routes redirect here.
+      // Per-page audit + a slim whole-site score that links to the full
+      // breakdown at /dashboard/site-score (both highlight this sidebar item).
+      // The old page-score / fix-plan / history routes still redirect here.
       { label: "Page Audit", href: "/dashboard/page-audit", icon: Gauge,
         match: ["/dashboard/site-score", "/dashboard/page-score", "/dashboard/page-optimization", "/dashboard/page-history"] },
       { label: "Title & Meta", href: "/dashboard/meta-tags", icon: Code2, match: ["/dashboard/serp-preview"] },
@@ -141,4 +141,41 @@ export function isActive(pathname: string, item: NavItem): boolean {
   }
   if (item.match?.some((p) => pathname.startsWith(p))) return true
   return item.exact ? pathname === item.href : pathname.startsWith(item.href)
+}
+
+export interface Crumb {
+  label: string
+  href: string
+}
+
+/**
+ * Nested routes that live under a sidebar item's path but have no entry of
+ * their own, mapped to the label shown as the final breadcrumb crumb. The
+ * parent crumb is resolved from the matching sidebar item, so clicking it
+ * returns to the parent page.
+ */
+export const nestedRouteLabels: Record<string, string> = {
+  "/dashboard/competitors/keywords": "Competitor Keywords",
+  // Full whole-site breakdown opened from the Page Audit page.
+  "/dashboard/site-score": "Whole-site score",
+}
+
+/**
+ * Breadcrumb trail for the topbar: the matching sidebar item, then (for a known
+ * nested route) a child crumb. Every crumb but the last is a link back.
+ */
+export function breadcrumbTrail(pathname: string): Crumb[] {
+  const parent = allNavItems
+    .filter((i) => isActive(pathname, i))
+    .sort((a, b) => (b.href?.length ?? 0) - (a.href?.length ?? 0))[0]
+  const trail: Crumb[] = [
+    parent?.href
+      ? { label: parent.label, href: parent.href }
+      : { label: "Dashboard", href: "/dashboard" },
+  ]
+  const childLabel = nestedRouteLabels[pathname]
+  if (childLabel && trail[0].href !== pathname) {
+    trail.push({ label: childLabel, href: pathname })
+  }
+  return trail
 }

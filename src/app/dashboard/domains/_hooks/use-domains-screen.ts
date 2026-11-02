@@ -1,6 +1,12 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useActiveWorkspace,
+  useReloadDomains,
+  useSetActiveDomain,
+  useWorkspaceDomains,
+} from "@/hooks/dashboard"
 import { ApiError, NetworkError } from "@/lib/api/client"
 import { useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
@@ -15,7 +21,11 @@ const POLL_MAX_TRIES = 10
 export function useDomainsScreen() {
 
   // Websites come from the dashboard context (shared with the top-bar switcher).
-  const { activeWorkspace, activeDomain, setActiveDomainId, domains, reloadDomains, domainsLoading: loading } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
+  const setActiveDomainId = useSetActiveDomain()
+  const { domains, loading } = useWorkspaceDomains()
+  const reloadDomains = useReloadDomains()
   const workspaceId = activeWorkspace?.id ?? null
   const qc = useQueryClient()
 

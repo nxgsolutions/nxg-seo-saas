@@ -7,7 +7,7 @@ import { toast } from "sonner"
 
 import { NoDomain } from "@/components/dashboard/current-domain"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Pager } from "@/components/ui/pager"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useLinkGap, useRefreshLinkGap } from "@/hooks/api/use-backlinks"
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ApiError, NetworkError } from "@/lib/api/client"
 import { cn } from "@/lib/utils"
-import { compact } from "../../competitive-strategy/_lib/competitive-strategy-helpers"
+import { compact } from "../../competitors/keywords/_lib/competitive-strategy-helpers"
 import { DataStatus, EmptyFetch, FetchButton } from "./fetch-controls"
 
 const PAGE_SIZE = 20
@@ -92,7 +92,8 @@ function GapRow({ r, sel }: { r: GapDomainRow; sel: string[] }) {
 
 export default function LinkGapPage({ embedded = false }: { embedded?: boolean }) {
   const header = embedded ? null : HEADER
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const domainId = activeDomain?.id ?? null
 

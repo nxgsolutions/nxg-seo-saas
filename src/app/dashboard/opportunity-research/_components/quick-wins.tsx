@@ -8,7 +8,8 @@ import { QuickWinsChart } from "@/components/charts/lazy"
 import { Pager } from "@/components/ui/pager"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveMarket } from "@/hooks/dashboard"
+import { useConnectGsc } from "@/hooks/api/use-gsc"
 import { useQuickWins } from "@/hooks/api/use-opportunity"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { errorMessage } from "@/lib/api/client"
@@ -17,7 +18,7 @@ import { fetchAllPages } from "@/lib/api/pagination"
 import { toast } from "sonner"
 import { downloadCsv } from "@/lib/report/csv"
 import { cn } from "@/lib/utils"
-import { Download, Info, Loader2 } from "lucide-react"
+import { Download, Info, Loader2, RefreshCw } from "lucide-react"
 import * as React from "react"
 import { SearchInput } from "@/components/ui/search-input"
 import { HeaderWithHelp } from "@/components/ui/column-help"
@@ -27,11 +28,47 @@ const num = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleStr
 
 const PAGE_SIZE = 25
 
+/** Shown when this domain has no usable Search Console link. If the message
+ *  signals an expired/revoked token, offer a one-click "Connect again" that
+ *  restarts Google OAuth and returns to this exact tab. */
+function GscConnectPrompt({ wid, message }: { wid: string; message?: string | null }) {
+  const connect = useConnectGsc(wid)
+  const expired = /expired|revoked|invalid_grant|reconnect/i.test(message ?? "")
+
+  function reconnect() {
+    if (!wid) return
+    const returnPath = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/dashboard"
+    connect.mutate(returnPath, {
+      onError: () => toast.error("Could not start the Google connection. Please try again."),
+    })
+  }
+
+  return (
+    <Alert className="border-amber-500/30 bg-amber-500/5">
+      <Info className="size-4 text-amber-500" />
+      <AlertTitle className="text-sm">
+        {expired ? "Your Google connection expired" : "Connect your search data for this domain"}
+      </AlertTitle>
+      <AlertDescription className="flex flex-col items-start gap-3 text-xs">
+        <p>
+          {expired
+            ? "Google signed out this site’s Search Console link, so we can’t read your live rankings. Reconnect to restore quick wins."
+            : "Quick wins use your real ranking positions from Google Search Console."}
+        </p>
+        <Button size="sm" onClick={reconnect} disabled={!wid || connect.isPending}>
+          {connect.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+          {expired ? "Connect again" : "Connect Google Search Console"}
+        </Button>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 /** Quick wins (striking distance): keywords the domain already ranks #4–20 for
  * in Search Console, ranked by opportunity — "our keywords where we can rank".
  * Loads for the page's selected domain; Search Console is free to query. */
 export function QuickWins({ wid, did }: { wid: string; did: string }) {
-  const { activeCountry, activeLanguage } = useDashboard()
+  const { country: activeCountry, language: activeLanguage } = useActiveMarket()
   const [onlyReal, setOnlyReal] = React.useState(true)
   const [filter, setFilter] = React.useState("")
   const q = useDebouncedValue(filter)
@@ -80,13 +117,7 @@ export function QuickWins({ wid, did }: { wid: string; did: string }) {
     return <Alert variant="destructive"><AlertDescription>{errorMessage(query.error, "Could not load quick wins.")}</AlertDescription></Alert>
   }
   if (data && !data.connected) {
-    return (
-      <Alert className="border-amber-500/30 bg-amber-500/5">
-        <Info className="size-4 text-amber-500" />
-        <AlertTitle className="text-sm">Connect your search data for this domain</AlertTitle>
-        <AlertDescription className="text-xs">{data.message ?? "Not connected."} Quick wins use your real ranking positions.</AlertDescription>
-      </Alert>
-    )
+    return <GscConnectPrompt wid={wid} message={data.message} />
   }
 
   return (

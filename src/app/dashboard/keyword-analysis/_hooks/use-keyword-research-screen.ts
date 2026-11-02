@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace } from "@/hooks/dashboard"
 import { useRecentKeywordSearches } from "@/hooks/api/use-keyword-search"
 import type { ResearchSummary } from "@/lib/api/keyword-search"
 import { useRouter } from "next/navigation"
@@ -9,7 +9,7 @@ import * as React from "react"
 /** Keyword Analysis page state: the recent-searches query and which saved
  * search is open (`activeId`). Data loading lives in hooks/api. */
 export function useKeywordResearchScreen() {
-  const { activeWorkspace } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
   const workspaceId = activeWorkspace?.id ?? null
   const router = useRouter()
   const recent = useRecentKeywordSearches(workspaceId)
@@ -20,7 +20,7 @@ export function useKeywordResearchScreen() {
   const openSearch = React.useCallback((item: ResearchSummary) => {
     if (item.kind === "domain") {
       const d = item.target ?? item.seed_keyword
-      router.push(`/dashboard/competitive-strategy?competitor=${encodeURIComponent(d)}`)
+      router.push(`/dashboard/competitors/keywords?competitor=${encodeURIComponent(d)}`)
       return
     }
     setActiveId(item.id)

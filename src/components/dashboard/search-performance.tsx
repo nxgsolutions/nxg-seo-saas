@@ -24,7 +24,7 @@ import { ApiError, errorMessage } from "@/lib/api/client"
 import { fetchAllPages } from "@/lib/api/pagination"
 import { GSC_FIRST_PAGE, useConnectGsc, useGscKeywords, useGscStatus } from "@/hooks/api/use-gsc"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Pager } from "@/components/ui/pager"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
@@ -239,7 +239,8 @@ function ConnectGsc({ configured, connecting, onConnect }: { configured: boolean
 
 export function SearchPerformanceView() {
   // The workspace + website picked in the top bar.
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const domain: Domain | null = activeDomain
 

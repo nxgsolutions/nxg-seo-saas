@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { NoDomain } from "@/components/dashboard/current-domain"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -9,17 +9,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCompetitorList, useDiscoverCompetitors } from "@/hooks/api/use-competitors"
 import { Loader2, Search, Sparkles, Users } from "lucide-react"
-import Link from "next/link"
 import { useCompetitorsScreen } from "../_hooks/use-competitors-screen"
 import { BusinessProfilePanel } from "./business-profile-panel"
 import { CompetitorRankTrendPanel } from "./competitor-rank-trend-panel"
-import { DiscoverPanel } from "./discover-panel"
 import { DiscoveryOverlay } from "./discovery-progress"
 import { EditableCompetitorsPanel } from "./editable-competitors-panel"
 
 export default function CompetitorsPage() {
   const { domainId } = useCompetitorsScreen()
-  const { activeDomain } = useDashboard()
+  const activeDomain = useActiveDomain()
 
   return (
     <div className="space-y-6">
@@ -32,7 +30,8 @@ export default function CompetitorsPage() {
 }
 
 function CompetitorsBody({ domainId }: { domainId: string }) {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const list = useCompetitorList(workspaceId, domainId || null)
   const hasCompetitors = (list.data?.rows?.length ?? 0) > 0
@@ -62,10 +61,10 @@ function CompetitorsBody({ domainId }: { domainId: string }) {
           <BusinessProfilePanel domainId={domainId} discovering={discover.isRunning} />
         </>
       ) : (
-        // Has competitors: the full workspace (re-find, edit list, profile, rank trend).
+        // Has competitors: the list is the focus. Re-finding competitors lives as
+        // a quiet action inside the list header (no separate discovery section).
         <>
-          <DiscoverPanel domainId={domainId} discover={discover} />
-          <EditableCompetitorsPanel domainId={domainId} />
+          <EditableCompetitorsPanel domainId={domainId} discover={discover} />
           <BusinessProfilePanel domainId={domainId} discovering={discover.isRunning} />
           <CompetitorRankTrendPanel domainId={domainId} />
         </>
@@ -86,7 +85,7 @@ function FindCompetitorsHero({
   domainId: string
   discover: ReturnType<typeof useDiscoverCompetitors>
 }) {
-  const { activeDomain } = useDashboard()
+  const activeDomain = useActiveDomain()
   const busy = discover.isRunning
   const error = discover.error
 
@@ -99,19 +98,16 @@ function FindCompetitorsHero({
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">Find your competitors</h2>
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
-            We analyze <span className="font-medium text-foreground">{activeDomain?.domain}</span> and find the
-            top sites competing for your audience. No setup needed — this reads your site directly.
+            We&apos;ll look at <span className="font-medium text-foreground">{activeDomain?.domain}</span> and
+            build a list of the sites competing for your audience. No setup needed.
           </p>
         </div>
         <Button size="lg" onClick={() => discover.start({ extraServices: [] })} disabled={busy || !domainId} className="min-w-52">
-          {busy ? <><Loader2 className="size-4 animate-spin" /> Finding competitors…</> : <><Search className="size-4" /> Find my competitors</>}
+          {busy ? <><Loader2 className="size-4 animate-spin" /> Finding competitors…</> : <><Search className="size-4" /> Find competitors</>}
         </Button>
         {error ? <Alert variant="destructive" className="max-w-md text-left"><AlertDescription>{error}</AlertDescription></Alert> : null}
         <p className="mx-auto max-w-md text-xs text-muted-foreground">
-          To track how your competitors rank over time, run a{" "}
-          <Link href="/dashboard/keyword-analysis" className="font-medium text-primary hover:underline">Keyword Analysis</Link>{" "}
-          and connect{" "}
-          <Link href="/dashboard/search-performance" className="font-medium text-primary hover:underline">Google Search Console</Link>.
+          Once you have a list, click any competitor to see the keywords they rank for.
         </p>
       </CardContent>
     </Card>

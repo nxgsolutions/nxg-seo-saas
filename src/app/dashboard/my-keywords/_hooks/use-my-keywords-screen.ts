@@ -1,6 +1,10 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useActiveWorkspace,
+  useWorkspaceDomains,
+} from "@/hooks/dashboard"
 import { useAddToRankTracking, useRemoveSavedKeyword } from "@/hooks/api/use-keyword-actions"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { ApiError, errorMessage } from "@/lib/api/client"
@@ -19,7 +23,9 @@ export const PAGE_SIZE = 25
  * Everything is for the ACTIVE website (top-bar switcher).
  */
 export function useMyKeywordsScreen() {
-  const { activeWorkspace, activeDomain, domainsLoading } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
+  const { loading: domainsLoading } = useWorkspaceDomains()
   const wid = activeWorkspace?.id ?? null
   const did = activeDomain?.id ?? null
 

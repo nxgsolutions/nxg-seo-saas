@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Skeleton } from "@/components/ui/skeleton"
 import { opportunityApi, type OppVolumeMover } from "@/lib/api/opportunity"
 import { queryKeys } from "@/lib/query/keys"
@@ -66,7 +66,8 @@ function MoverList({ title, rows, positive }: { title: string; rows: OppVolumeMo
 
 export function OpportunityChangeCharts() {
   // The domain picked in the top bar.
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? ""
   const domainId = activeDomain?.id ?? ""
   // Month-over-month volume change (TanStack Query, cached per website).

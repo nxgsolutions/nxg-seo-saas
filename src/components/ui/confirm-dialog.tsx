@@ -25,7 +25,8 @@ import { cn } from "@/lib/utils"
  */
 export function ConfirmDialog({
   open, onOpenChange, title, description, details, confirmLabel = "Confirm", cancelLabel = "Cancel",
-  tone = "destructive", icon, onConfirm, errorText = "Something went wrong. Please try again.",
+  tone = "destructive", icon, onConfirm, confirmDisabled = false, className,
+  errorText = "Something went wrong. Please try again.",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -39,6 +40,10 @@ export function ConfirmDialog({
   tone?: "destructive" | "default"
   icon?: React.ReactNode
   onConfirm: () => unknown | Promise<unknown>
+  /** Disable the confirm button (e.g. nothing selected yet). */
+  confirmDisabled?: boolean
+  /** Extra classes for the dialog popup (e.g. a wider `sm:max-w-lg`). */
+  className?: string
   /** Fallback message when the action fails without a readable error. */
   errorText?: string
 }) {
@@ -68,7 +73,7 @@ export function ConfirmDialog({
   const destructive = tone === "destructive"
   return (
     <AlertDialog open={open} onOpenChange={(o) => { if (!busy) onOpenChange(o) }}>
-      <AlertDialogContent>
+      <AlertDialogContent className={className}>
         <AlertDialogHeader>
           <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full",
             destructive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")} aria-hidden="true">
@@ -79,7 +84,7 @@ export function ConfirmDialog({
             {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
           </div>
         </AlertDialogHeader>
-        {details && <div className="text-sm sm:pl-14">{details}</div>}
+        {details && <div className="min-w-0 text-sm sm:pl-14">{details}</div>}
         {error && (
           <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive sm:ml-14">
             {error}
@@ -87,7 +92,7 @@ export function ConfirmDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogClose render={<Button variant="outline" disabled={busy} />}>{cancelLabel}</AlertDialogClose>
-          <Button variant={destructive ? "destructive" : "default"} onClick={confirm} disabled={busy} autoFocus={!destructive}>
+          <Button variant={destructive ? "destructive" : "default"} onClick={confirm} disabled={busy || confirmDisabled} autoFocus={!destructive}>
             {busy && <Loader2 className="size-4 animate-spin" />}
             {confirmLabel}
           </Button>

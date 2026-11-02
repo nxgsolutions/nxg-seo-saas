@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain } from "@/hooks/dashboard"
 import type { InspectResult } from "@/lib/api/pages"
 import { useSearchParams } from "next/navigation"
 import * as React from "react"
@@ -9,7 +9,7 @@ import { useTextWidth } from "./use-text-width"
 
 export function useSerpPreviewScreen() {
 
-  const { activeDomain } = useDashboard()
+  const activeDomain = useActiveDomain()
 
   const measure = useTextWidth()
 

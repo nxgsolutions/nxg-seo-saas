@@ -6,8 +6,9 @@ import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
 
-import { DashboardProvider } from "@/components/dashboard/dashboard-context"
+import { DashboardGate } from "@/components/dashboard/dashboard-gate"
 import { QueryProvider } from "@/components/providers/query-provider"
+import { StoreProvider } from "@/store/store-provider"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { AppTopbar } from "@/components/dashboard/app-topbar"
 import { WorkspaceScope } from "@/components/dashboard/workspace-scope"
@@ -31,8 +32,9 @@ export default function DashboardLayout({
   }
 
   return (
+    <StoreProvider>
     <QueryProvider>
-    <DashboardProvider>
+    <DashboardGate>
       {/* The app fills the viewport up to an ultrawide cap, then centers beyond
           it. `self-center` (not mx-auto) is required because <body> is a column
           flex container — auto margins don't center on its cross axis. */}
@@ -67,7 +69,8 @@ export default function DashboardLayout({
           </main>
         </div>
       </div>
-    </DashboardProvider>
+    </DashboardGate>
     </QueryProvider>
+    </StoreProvider>
   )
 }

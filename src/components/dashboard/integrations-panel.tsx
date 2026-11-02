@@ -10,7 +10,7 @@ import { useConnectGsc, useDisconnectGsc } from "@/hooks/api/use-gsc"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { errorMessage } from "@/lib/api/client"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace } from "@/hooks/dashboard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -59,7 +59,7 @@ function Row({
 const SHOW_SERVER_SETUP = false
 
 export function IntegrationsPanel() {
-  const { activeWorkspace } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
   const workspaceId = activeWorkspace?.id ?? null
 
   // Integration status (TanStack Query); GSC connect / disconnect via the shared GSC hooks.

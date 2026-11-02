@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain } from "@/hooks/dashboard"
 import { ApiError, NetworkError } from "@/lib/api/client"
 import { type OptimizeResult } from "@/lib/api/optimization"
 import * as React from "react"
@@ -9,7 +9,7 @@ import { ImpactFilter } from "../_lib/page-optimization-helpers"
 
 export function usePageOptimizationScreen() {
 
-  const { activeDomain } = useDashboard()
+  const activeDomain = useActiveDomain()
 
   const [url, setUrl] = React.useState("")
 

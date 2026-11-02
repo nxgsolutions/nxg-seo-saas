@@ -10,7 +10,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveMarket } from "@/hooks/dashboard/use-active-market"
 import { competitorsApi, type DiscoveryJob } from "@/lib/api/competitors"
 import { queryKeys } from "@/lib/query/keys"
 
@@ -49,7 +49,7 @@ export function useRefreshBusinessProfile(wid: string | null, did: string | null
 
 /** Domains ranking for your keywords that aren't on the list yet (from your SERP data). */
 export function useCompetitorSuggestions(wid: string | null, did: string | null) {
-  const { activeCountry, activeLanguage } = useDashboard()
+  const { country: activeCountry, language: activeLanguage } = useActiveMarket()
   return useQuery({
     queryKey: [...queryKeys.competitors(wid ?? "", did ?? ""), "suggestions", activeCountry, activeLanguage],
     queryFn: () => competitorsApi.suggestions(wid!, did!, { country: activeCountry, language: activeLanguage }),
@@ -80,6 +80,23 @@ export function useAddCompetitor(wid: string | null, did: string | null) {
   })
 }
 
+/** Add several competitors at once (confirming a "find competitors again" preview). */
+export function useAddCompetitorsBulk(wid: string | null, did: string | null) {
+  const invalidate = useInvalidateDomain(wid, did)
+  return useMutation({
+    mutationFn: (
+      competitors: Array<{
+        domain: string
+        label?: string | null
+        reason?: string | null
+        confidence?: string | null
+        match_score?: number | null
+      }>,
+    ) => competitorsApi.addBulk(wid!, did!, competitors),
+    onSuccess: () => invalidate(),
+  })
+}
+
 export function useRemoveCompetitor(wid: string | null, did: string | null) {
   const invalidate = useInvalidateDomain(wid, did)
   return useMutation({
@@ -102,7 +119,7 @@ export function useDiscoverCompetitors(wid: string | null, did: string | null) {
   const [jobId, setJobId] = React.useState<string | null>(null)
 
   const start = useMutation({
-    mutationFn: (v: { targetDomain?: string; extraServices: string[] }) =>
+    mutationFn: (v: { targetDomain?: string; extraServices: string[]; preview?: boolean }) =>
       competitorsApi.discover(wid!, did!, v),
     onSuccess: (job) => setJobId(job.job_id),
   })
@@ -129,13 +146,15 @@ export function useDiscoverCompetitors(wid: string | null, did: string | null) {
   const startError = start.isError ? "Couldn't start the search. Please try again." : null
 
   return {
-    start: (v: { targetDomain?: string; extraServices: string[] }) => {
+    start: (v: { targetDomain?: string; extraServices: string[]; preview?: boolean }) => {
       doneRef.current = null
       start.mutate(v)
     },
     job,
     isRunning: Boolean(isRunning),
     isDone: job?.status === "done",
+    /** Preview runs: candidates to confirm before merging (null for a direct run). */
+    proposed: job?.proposed ?? null,
     error: startError ?? (job?.status === "error" ? job.error : null),
   }
 }

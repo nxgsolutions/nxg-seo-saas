@@ -1,13 +1,19 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveWorkspace,
+  useRefreshWorkspaces,
+  useUser,
+} from "@/hooks/dashboard"
 import * as React from "react"
 import { toast } from "sonner"
 import { workspacesApi } from "@/lib/api/workspaces"
 import { describe } from "../_lib/settings-helpers"
 
 export function useSettingsScreen() {
-  const { user, activeWorkspace, refreshWorkspaces } = useDashboard()
+  const user = useUser()
+  const activeWorkspace = useActiveWorkspace()
+  const refreshWorkspaces = useRefreshWorkspaces()
 
   // ── Rename ────────────────────────────────────────────────────────────────
   const [name, setName] = React.useState(activeWorkspace?.name ?? "")

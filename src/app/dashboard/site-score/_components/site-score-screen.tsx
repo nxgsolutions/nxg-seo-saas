@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { DomainScoreTrendPoint, ScoredPage, SiteCheck } from "@/lib/api/domain-score"
-import { cn, timeAgo } from "@/lib/utils"
+import { cn, daysUntil, timeAgo } from "@/lib/utils"
 import {
   AlertTriangle, ArrowRight, CheckCircle2, Gauge, Globe, Layers,
   Loader2, RefreshCw, ScanSearch, XCircle,
@@ -110,7 +110,7 @@ function Distribution({ good, needs, poor, worst }: { good: number; needs: numbe
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Pages scored</CardTitle>
-        <CardDescription>How the sampled pages break down, weakest first.</CardDescription></CardHeader>
+        <CardDescription>How your pages break down, weakest first.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-lg bg-emerald-500/10 py-2"><p className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{good}</p><p className="text-xs text-muted-foreground">Good</p></div>
@@ -142,14 +142,16 @@ function Distribution({ good, needs, poor, worst }: { good: number; needs: numbe
  * wanted). */
 export function SiteScoreOverview() {
   const s = useSiteScoreScreen()
-  const { latest, running, job, jobError, error, domainName } = s
+  const { latest, running, job, jobError, error, domainName, canRefetch, nextRefetchAt } = s
   const b = latest ? band(latest.overall) : null
+  const waitDays = daysUntil(nextRefetchAt)
 
   const RunButton = (
-    <Button onClick={s.start} disabled={running || !s.domainId}>
+    <Button onClick={s.start} disabled={running || !s.domainId || (Boolean(latest) && !canRefetch)}>
       {running ? <><Loader2 className="size-4 animate-spin" /> Scoring…</>
-        : latest ? <><RefreshCw className="size-4" /> Re-score site</>
-        : <><Gauge className="size-4" /> Score site</>}
+        : !latest ? <><Gauge className="size-4" /> Score every page</>
+        : canRefetch ? <><RefreshCw className="size-4" /> Re-score site</>
+        : <><RefreshCw className="size-4" /> {waitDays ? `Next refresh in ${waitDays} day${waitDays > 1 ? "s" : ""}` : "Up to date"}</>}
     </Button>
   )
 
@@ -158,7 +160,7 @@ export function SiteScoreOverview() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold"><Globe className="size-5 text-primary" /> Whole-site score</h2>
-          <p className="text-sm text-muted-foreground">A weighted blend of your pages plus site-wide technical signals (a representative sample).</p>
+          <p className="text-sm text-muted-foreground">A weighted blend of every page on your site plus site-wide technical signals.</p>
         </div>
         {RunButton}
       </div>
@@ -166,7 +168,11 @@ export function SiteScoreOverview() {
       {running && (
         <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm" role="status" aria-busy="true">
           <Loader2 className="size-4 animate-spin text-primary" />
-          <span className="flex-1">{job?.step_label ?? "Starting…"}{job?.pages_total ? ` · ${job.pages_scored}/${job.pages_total} pages` : ""}</span>
+          <span className="flex-1">
+            {job?.step_label ?? "Starting…"}
+            {job?.pages_total ? ` · ${job.pages_scored.toLocaleString()}/${job.pages_total.toLocaleString()} pages` : ""}
+            {job?.pages_failed ? ` · ${job.pages_failed.toLocaleString()} skipped` : ""}
+          </span>
         </div>
       )}
 
@@ -221,7 +227,7 @@ export function SiteScoreOverview() {
           <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Layers className="size-6" /></div>
           <h2 className="mt-3 text-base font-semibold">No site score yet</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Score this website to get one overall number from a sample of its pages plus site-wide checks. It uses Page Discovery to find pages, so run a scan first if you haven&apos;t.
+            Score this website to get one overall number from every page on your site plus site-wide checks. It uses your discovered pages, so find your pages first if you haven&apos;t.
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
             {RunButton}

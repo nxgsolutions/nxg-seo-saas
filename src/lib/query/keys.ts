@@ -11,6 +11,14 @@ const ws = (wid: string) => ["ws", wid] as const
 const dom = (wid: string, did: string) => ["ws", wid, "domain", did] as const
 
 export const queryKeys = {
+  /** Current authenticated user (not workspace-scoped). */
+  session: {
+    me: () => ["session", "me"] as const,
+  },
+  workspaces: {
+    all: () => ["workspaces"] as const,
+    domains: (wid: string) => [...ws(wid), "domains"] as const,
+  },
   keywordSearch: {
     all: (wid: string) => [...ws(wid), "keyword-search"] as const,
     recent: (wid: string) => [...ws(wid), "keyword-search", "recent"] as const,

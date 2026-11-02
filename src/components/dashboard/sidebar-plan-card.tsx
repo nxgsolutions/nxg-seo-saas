@@ -6,7 +6,7 @@ import { ArrowUpRight, Crown, Sparkles } from "lucide-react"
 
 import { useSubscription } from "@/hooks/api/use-billing"
 import { type Subscription } from "@/lib/api/billing"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace } from "@/hooks/dashboard"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -27,7 +27,7 @@ function statusLabel(sub: Subscription): string {
 }
 
 export function SidebarPlanCard({ onNavigate }: { onNavigate?: () => void }) {
-  const { activeWorkspace } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
   const workspaceId = activeWorkspace?.id ?? null
 
   // Shared cached subscription (same query as the Billing page).

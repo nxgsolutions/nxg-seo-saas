@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveWorkspace } from "@/hooks/dashboard"
 import { Button } from "@/components/ui/button"
 import { errorMessage } from "@/lib/api/client"
 import type { AiOverview } from "@/lib/api/ai-overview"
@@ -42,7 +42,7 @@ export function AiOverviewCard({ requestKey, load, className, title = "AI overvi
   /** "Take action" link shown under the bullets — where to go to act on this. */
   action?: { label: string; href: string } | null
 }) {
-  const { activeWorkspace } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
   const qc = useQueryClient()
   const key = queryKeys.aiOverview(activeWorkspace?.id ?? "", requestKey)
   const query = useQuery({ queryKey: key, queryFn: () => load(false), staleTime: 5 * 60_000 })

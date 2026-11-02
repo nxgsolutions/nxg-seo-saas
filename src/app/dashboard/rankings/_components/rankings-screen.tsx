@@ -2,7 +2,7 @@
 
 import { RankTrendChart } from "@/components/charts/lazy"
 import type { RankPoint } from "@/components/charts/rank-trend-chart"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { NoDomain } from "@/components/dashboard/current-domain"
@@ -58,7 +58,8 @@ function RankSummary({ keywords }: { keywords: { latest_position: number | null;
 
 export default function RankingsPage() {
   // The workspace + website picked in the top bar.
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const wid = activeWorkspace?.id ?? null
   const siteId = activeDomain?.id ?? null
 

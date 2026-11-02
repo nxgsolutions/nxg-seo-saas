@@ -18,7 +18,7 @@ export default function OpportunityResearchPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Keyword research"
+        // eyebrow="Keyword research"
         title={
           <>
             <TrendingUp /> Action Plan

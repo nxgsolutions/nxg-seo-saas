@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import {
   useContentSession, useContentSessions, useKeywordOptions, useRunContentOptimization,
 } from "@/hooks/api/use-content-optimization"
@@ -18,7 +18,8 @@ import { parseUrls } from "../_lib/content-optimization-helpers"
  * `?url=` and `?keyword=` prefill the form (links from other pages).
  */
 export function useContentOptimizationScreen() {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const domainId = activeDomain?.id ?? null
   const router = useRouter()

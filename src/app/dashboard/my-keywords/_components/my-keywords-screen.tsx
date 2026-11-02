@@ -20,11 +20,29 @@ import { useMyKeywordsScreen, type MyKeywordsScreen } from "../_hooks/use-my-key
 
 const fmt = (v: number | null, digits = 0) => (v == null ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: digits }))
 
-function kdTone(kd: number | null): string {
-  if (kd == null) return "text-muted-foreground"
-  if (kd < 30) return "text-emerald-600 dark:text-emerald-400"
-  if (kd < 60) return "text-amber-600 dark:text-amber-400"
-  return "text-destructive"
+/** Keyword difficulty as a tinted pill — green (easy) → amber → rose (hard). */
+function DifficultyBadge({ kd }: { kd: number | null }) {
+  if (kd == null) return <span className="text-xs text-muted-foreground">—</span>
+  const tone =
+    kd < 30 ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-400"
+    : kd < 60 ? "bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-400"
+    : "bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-400"
+  return (
+    <span className={cn("inline-flex min-w-[1.75rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ring-1 ring-inset", tone)}
+      title={`Estimated keyword difficulty: ${Math.round(kd)} / 100`}>
+      {Math.round(kd)}
+    </span>
+  )
+}
+
+/** Search-intent chip, colour-coded by intent type (with a leading dot). */
+function intentTone(intent: string): string {
+  switch (intent.toLowerCase()) {
+    case "transactional": return "bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-400"
+    case "commercial": return "bg-blue-500/10 text-blue-700 ring-blue-500/20 dark:text-blue-400"
+    case "navigational": return "bg-slate-500/10 text-slate-700 ring-slate-500/20 dark:text-slate-300"
+    default: return "bg-teal-500/10 text-teal-700 ring-teal-500/20 dark:text-teal-400" // informational
+  }
 }
 
 /** Tracked Google rank with movement since the previous check, or a Track button. */
@@ -148,7 +166,7 @@ export default function MyKeywordsPage() {
                   )) : s.rows.length === 0 ? (
                     <tr><td colSpan={8}><EmptyState searching={s.hasSearch} /></td></tr>
                   ) : s.rows.map((r) => (
-                    <tr key={r.id} className="h-12 border-b last:border-0 hover:bg-muted/40">
+                    <tr key={r.id} className="group h-12 border-b transition-colors last:border-0 hover:bg-muted/40">
                       <td className="p-3">
                         <div className="flex items-center gap-2">
                           <KeywordActionsMenu keyword={r.keyword} workspaceId={s.wid} domainId={s.did} country={r.country} language={r.language} />
@@ -157,10 +175,12 @@ export default function MyKeywordsPage() {
                         </div>
                       </td>
                       <td className="p-2 text-right tabular-nums">{fmt(r.search_volume)}</td>
-                      <td className="p-2 text-right tabular-nums">{fmt(r.cpc, 2)}</td>
-                      <td className={cn("p-2 text-right font-medium tabular-nums", kdTone(r.difficulty))}>{fmt(r.difficulty)}</td>
+                      <td className="p-2 text-right tabular-nums">{r.cpc == null ? <span className="text-muted-foreground">—</span> : `$${fmt(r.cpc, 2)}`}</td>
+                      <td className="p-2 text-right"><DifficultyBadge kd={r.difficulty} /></td>
                       <td className="p-2">{r.intent
-                        ? <span className="rounded-full border px-2 py-0.5 text-xs capitalize">{r.intent}</span>
+                        ? <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset", intentTone(r.intent))}>
+                            <span className="size-1.5 rounded-full bg-current opacity-70" />{r.intent}
+                          </span>
                         : <span className="text-xs text-muted-foreground">—</span>}</td>
                       <td className="p-2 text-right"><RankCell row={r} screen={s} /></td>
                       <td className="p-2 text-right text-xs text-muted-foreground" title={new Date(r.created_at).toLocaleString()}>{timeAgo(r.created_at)}</td>

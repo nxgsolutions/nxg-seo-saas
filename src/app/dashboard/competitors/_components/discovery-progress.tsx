@@ -106,7 +106,12 @@ export function DiscoveryOverlay({
           >
             <AnimatePresence mode="wait">
               {phase === "success" ? (
-                <DiscoverySuccess key="success" count={job?.count ?? 0} reduce={!!reduce} />
+                <DiscoverySuccess
+                  key="success"
+                  count={job?.count ?? 0}
+                  preview={job?.proposed != null}
+                  reduce={!!reduce}
+                />
               ) : (
                 <DiscoveryProgress
                   key="progress"
@@ -144,9 +149,10 @@ export function DiscoveryProgress({
 
   // step is 1-indexed from the server (0 while starting). Active row = step-1.
   const activeIndex = Math.min(STEPS.length - 1, Math.max(0, step - 1))
-  // Fill to the middle of the current step; caps at 92% so it never looks done
+  // Fill to the middle of the current step. Floor at 8% so the very start shows a
+  // tidy rounded nub (not a cropped sliver); cap at 92% so it never looks done
   // until the success state takes over.
-  const pct = Math.min(92, (Math.max(step, 0.4) - 0.5) / Math.max(totalSteps, 1) * 100)
+  const pct = Math.max(8, Math.min(92, (Math.max(step, 0.4) - 0.5) / Math.max(totalSteps, 1) * 100))
 
   return (
     <motion.div
@@ -156,23 +162,28 @@ export function DiscoveryProgress({
       transition={{ duration: 0.2 }}
       className="overflow-hidden rounded-2xl border bg-card shadow-2xl"
     >
-      {/* Progress bar */}
-      <div className="relative h-1.5 w-full overflow-hidden bg-primary/10">
-        <motion.div
-          className="h-full bg-gradient-to-r from-primary/70 to-primary"
-          animate={{ width: `${pct}%` }}
-          transition={{ ease: "easeOut", duration: 0.6 }}
-        />
-        {!reduce ? (
-          <motion.div
-            className="absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-            animate={{ x: ["-6rem", "100%"] }}
-            transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
-          />
-        ) : null}
-      </div>
-
       <div className="p-6 sm:p-7">
+        {/* Overall progress — a self-contained rounded pill INSIDE the card, so
+            its ends never get clipped by the card's rounded corners. The fill
+            grows smoothly with a sheen that travels across the filled portion. */}
+        <div className="relative mb-6 h-2 w-full overflow-hidden rounded-full bg-primary/10">
+          <motion.div
+            className="relative h-full overflow-hidden rounded-full bg-gradient-to-r from-primary/80 via-primary to-primary"
+            initial={false}
+            animate={{ width: `${pct}%` }}
+            transition={{ ease: "easeOut", duration: 0.6 }}
+          >
+            {!reduce ? (
+              <motion.span
+                aria-hidden
+                className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/55 to-transparent"
+                animate={{ x: ["0%", "420%"] }}
+                transition={{ repeat: Infinity, duration: 1.3, ease: "easeInOut" }}
+              />
+            ) : null}
+          </motion.div>
+        </div>
+
         {/* Header */}
         <div className="mb-6 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3.5">
@@ -223,8 +234,17 @@ export function DiscoveryProgress({
   )
 }
 
-/** Success flourish shown for a beat once the run completes. */
-function DiscoverySuccess({ count, reduce }: { count: number; reduce: boolean }) {
+/** Success flourish shown for a beat once the run completes. In `preview` mode
+ *  (find competitors again) the copy points to the confirm step that follows. */
+function DiscoverySuccess({
+  count,
+  preview = false,
+  reduce,
+}: {
+  count: number
+  preview?: boolean
+  reduce: boolean
+}) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -255,12 +275,20 @@ function DiscoverySuccess({ count, reduce }: { count: number; reduce: boolean })
         </div>
         <div className="space-y-1.5">
           <p className="text-xl font-semibold">
-            {count > 0 ? "Your competitors are ready" : "Analysis complete"}
+            {count > 0
+              ? preview
+                ? `Found ${count} new ${count === 1 ? "competitor" : "competitors"}`
+                : "Your competitors are ready"
+              : "Analysis complete"}
           </p>
           <p className="text-sm text-muted-foreground">
             {count > 0
-              ? <>Found <span className="font-semibold text-foreground">{count}</span> direct {count === 1 ? "competitor" : "competitors"} — loading your list…</>
-              : "Loading your results…"}
+              ? preview
+                ? <>Review {count === 1 ? "it" : "them"} to add to your list…</>
+                : <>Found <span className="font-semibold text-foreground">{count}</span> direct {count === 1 ? "competitor" : "competitors"} — loading your list…</>
+              : preview
+                ? "No new competitors found — your list is up to date."
+                : "Loading your results…"}
           </p>
         </div>
       </div>
@@ -282,13 +310,25 @@ function StepRow({
   connector: boolean
 }) {
   const Icon = step.icon
+  const active = state === "active"
   return (
     <div
       className={`relative flex items-center gap-4 rounded-xl px-3 py-3.5 transition-colors ${
-        state === "active" ? "bg-primary/[0.06]" : ""
+        active ? "bg-primary/[0.06]" : ""
       }`}
     >
-      <div className="relative flex size-11 shrink-0 items-center justify-center">
+      {/* Breathing highlight on the step that's currently running. Sits behind
+          the content (z-0) and pulses its opacity so the row feels "live". */}
+      {active && !reduce ? (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0 rounded-xl bg-primary/10"
+          animate={{ opacity: [0, 0.9, 0] }}
+          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+        />
+      ) : null}
+
+      <div className="relative z-10 flex size-11 shrink-0 items-center justify-center">
         {/* Connector line down to the next step (lit once this step is done). It
             tucks behind the next step's solid icon circle, so no exact math. */}
         {connector ? (
@@ -341,7 +381,7 @@ function StepRow({
         </div>
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="relative z-10 min-w-0 flex-1">
         <p
           className={`truncate text-[15px] font-semibold ${
             state === "todo" ? "text-muted-foreground/70" : "text-foreground"
@@ -359,13 +399,13 @@ function StepRow({
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 500, damping: 20 }}
-          className="shrink-0 text-primary"
+          className="relative z-10 shrink-0 text-primary"
         >
           <Check className="size-5" strokeWidth={3} />
         </motion.span>
       ) : state === "active" && !reduce ? (
         <motion.span
-          className="size-2.5 shrink-0 rounded-full bg-primary"
+          className="relative z-10 size-2.5 shrink-0 rounded-full bg-primary"
           animate={{ opacity: [0.3, 1, 0.3] }}
           transition={{ repeat: Infinity, duration: 1.2 }}
         />

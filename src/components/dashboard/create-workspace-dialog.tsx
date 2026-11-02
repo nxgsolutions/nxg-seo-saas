@@ -6,7 +6,7 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useRefreshWorkspaces, useSetActiveWorkspace } from "@/hooks/dashboard"
 import { describeError, Modal, DomainField, domainFrom } from "@/components/dashboard/domain-dialogs"
 import { workspacesApi } from "@/lib/api/workspaces"
 import { cn } from "@/lib/utils"
@@ -19,7 +19,8 @@ const EXAMPLES = ["My Business", "Client: Acme", "Personal Blog"]
  */
 export function CreateWorkspaceDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter()
-  const { refreshWorkspaces, setActiveWorkspaceId } = useDashboard()
+  const refreshWorkspaces = useRefreshWorkspaces()
+  const setActiveWorkspaceId = useSetActiveWorkspace()
   const [step, setStep] = React.useState<1 | 2>(1)
   const [name, setName] = React.useState("")
   const [site, setSite] = React.useState("")

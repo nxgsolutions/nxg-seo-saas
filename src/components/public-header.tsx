@@ -23,7 +23,7 @@ const productGroups = [
     title: "Analyze",
     items: [
       { name: "Keyword Analysis", description: "Find the terms your audience searches for.", href: "/dashboard/keyword-analysis" },
-      { name: "Competitive Strategy", description: "Discover gaps and new opportunities.", href: "/dashboard/competitive-strategy" },
+      { name: "Competitor Keywords", description: "Discover gaps and new opportunities.", href: "/dashboard/competitors/keywords" },
       { name: "Page Audit", description: "Find SEO issues and prioritize your fixes.", href: "/dashboard/page-audit" },
     ],
   },

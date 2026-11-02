@@ -31,7 +31,7 @@ export function QuickActionsPanel() {
         { href: "/dashboard/ai-search", label: "AI visibility", icon: Sparkles },
       ].map((a) => (
         <Link
-          key={a.href}
+          key={a.label}
           href={a.href}
           className="dashboard-quick-action"
         >

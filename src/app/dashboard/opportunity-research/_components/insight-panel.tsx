@@ -1,11 +1,16 @@
 "use client"
 
+import { buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { UrlCombobox } from "@/components/ui/url-combobox"
+import { contentOptimizationHref } from "@/components/keywords/keyword-actions-menu"
 import { usePageInsight } from "@/hooks/api/use-action-plan"
+import { useDiscoveredPages } from "@/hooks/api/use-page-discovery"
 import { errorMessage } from "@/lib/api/client"
 import { type ActionItem } from "@/lib/api/opportunity"
 import { cn } from "@/lib/utils"
-import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleHelp, ExternalLink, Lightbulb, XCircle } from "lucide-react"
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleHelp, ExternalLink, Lightbulb, Wand2, XCircle } from "lucide-react"
+import Link from "next/link"
 import * as React from "react"
 
 const PRIORITY: Record<"high" | "medium" | "low", { label: string; className: string }> = {
@@ -22,6 +27,11 @@ const PRIORITY: Record<"high" | "medium" | "low", { label: string; className: st
 export function InsightPanel({ wid, did, item }: { wid: string; did: string; item: ActionItem }) {
   // Cached per keyword/page (TanStack Query) — reopening Details is instant.
   const query = usePageInsight(wid, did, item)
+  // The domain's own pages, so that when nothing matches the user can pick which
+  // page to optimise for this keyword (shared cache across rows — one fetch).
+  const pages = useDiscoveredPages(wid, did, { indexable: "true" }, { page: 1, pageSize: 200 }, false)
+  const pageUrls = React.useMemo(() => (pages.data?.rows ?? []).map((p) => p.url), [pages.data])
+  const [picked, setPicked] = React.useState("")
 
   if (query.isPending) {
     return (
@@ -95,11 +105,35 @@ export function InsightPanel({ wid, did, item }: { wid: string; did: string; ite
             )}
           </div>
           {!yours ? (
-            <p className="ds-meta mt-2">No existing page matches this keyword — create a new one.</p>
+            // No page of ours targets this keyword — let the user pick which page
+            // to optimise for it, or create a new one. Either way goes to Content
+            // Optimization with the keyword (and the chosen URL) pre-filled.
+            <div className="mt-2 space-y-3">
+              <p className="ds-meta">
+                No page on your site targets “{d.keyword}” yet. Choose the page to optimise for it, or create a new one.
+              </p>
+              <UrlCombobox
+                value={picked}
+                onValueChange={setPicked}
+                items={pageUrls}
+                placeholder={pages.isPending ? "Loading your pages…" : "Choose or paste one of your pages…"}
+                aria-label="Page to optimize for this keyword"
+              />
+              <Link href={contentOptimizationHref(d.keyword, picked || null)}
+                className={cn(buttonVariants({ size: "sm" }), "w-full justify-center sm:w-auto")}>
+                <Wand2 className="size-4" /> {picked ? "Optimize this page" : "Create & optimize a new page"}
+              </Link>
+            </div>
           ) : !yours.ok ? (
-            <p className="mt-2 flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="size-4" /> Couldn&apos;t load {yours.url} right now — try again shortly.
-            </p>
+            <div className="mt-2 space-y-3">
+              <p className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="size-4" /> Couldn&apos;t load {yours.url} right now — try again shortly.
+              </p>
+              <Link href={contentOptimizationHref(d.keyword, yours.url)}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                <Wand2 className="size-4" /> Optimize this page
+              </Link>
+            </div>
           ) : (
             <>
               <a href={yours.url} target="_blank" rel="noopener noreferrer"
@@ -117,6 +151,10 @@ export function InsightPanel({ wid, did, item }: { wid: string; did: string; ite
                   </li>
                 ))}
               </ul>
+              <Link href={contentOptimizationHref(d.keyword, yours.url)}
+                className={cn(buttonVariants({ size: "sm" }), "mt-3")}>
+                <Wand2 className="size-4" /> Optimize this page
+              </Link>
             </>
           )}
         </div>

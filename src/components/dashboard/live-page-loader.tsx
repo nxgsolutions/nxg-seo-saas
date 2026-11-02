@@ -1,6 +1,6 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useInspectPage, useSitePages } from "@/hooks/api/use-pages"
@@ -22,7 +22,8 @@ export function LivePageLoader({ onLoaded, initialUrl, className }: {
   initialUrl?: string | null
   className?: string
 }) {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const wid = activeWorkspace?.id ?? null
   const [url, setUrl] = React.useState(initialUrl ?? "")
   const [loaded, setLoaded] = React.useState<{ result: InspectResult; at: string } | null>(null)

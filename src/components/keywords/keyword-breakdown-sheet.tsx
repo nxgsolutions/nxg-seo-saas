@@ -290,7 +290,7 @@ function DomainMenu({ host, url, isYou, competitor, onAddCompetitor }: {
             </DropdownMenuItem>
           )
         )}
-        <DropdownMenuItem onClick={() => router.push(`/dashboard/competitive-strategy?competitor=${encodeURIComponent(host)}`)}>
+        <DropdownMenuItem onClick={() => router.push(`/dashboard/competitors/keywords?competitor=${encodeURIComponent(host)}`)}>
           <Swords /> Analyze {host}
         </DropdownMenuItem>
       </DropdownMenuContent>

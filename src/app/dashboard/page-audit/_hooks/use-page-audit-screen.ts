@@ -1,9 +1,14 @@
 "use client"
 
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import {
+  useActiveDomain,
+  useActiveWorkspace,
+  useWorkspaceDomains,
+} from "@/hooks/dashboard"
 import { useAuditHistory, useRunAudit } from "@/hooks/api/use-page-audits"
 import { useSitePages } from "@/hooks/api/use-pages"
 import { auditsApi, type AuditSummary } from "@/lib/api/audits"
+import { pageScoreApi } from "@/lib/api/page-score"
 import { errorMessage } from "@/lib/api/client"
 import { queryKeys } from "@/lib/query/keys"
 import { useQuery } from "@tanstack/react-query"
@@ -19,7 +24,9 @@ const NO_AUDITS: AuditSummary[] = [] // stable empty list (keeps the memo below 
  * saved audits and the website's tracked pages come from TanStack Query.
  */
 export function usePageAuditScreen() {
-  const { activeWorkspace, domains, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const { domains } = useWorkspaceDomains()
+  const activeDomain = useActiveDomain()
   const workspaceId = activeWorkspace?.id ?? null
   const router = useRouter()
   const pathname = usePathname()
@@ -52,6 +59,17 @@ export function usePageAuditScreen() {
   })
   const result = auditQuery.data ?? null
 
+  // Opening a page by URL (e.g. from the whole-site breakdown) shows its last
+  // saved score instantly — no fetch — until the user re-audits.
+  const urlParam = params.get("url")
+  const storedQuery = useQuery({
+    queryKey: ["ws", workspaceId ?? "", "page-score-latest", urlParam ?? ""],
+    queryFn: () => pageScoreApi.latest(workspaceId!, urlParam!),
+    enabled: Boolean(workspaceId && urlParam && !openId),
+    staleTime: 60_000,
+  })
+  const storedScore = !openId ? storedQuery.data ?? null : null
+
   function open(id: string | null) {
     const next = new URLSearchParams(params.toString())
     next.delete("url")
@@ -80,6 +98,16 @@ export function usePageAuditScreen() {
     open(id)
   }
 
+  /** Run a fresh full audit for a specific URL (the stored-score "Re-audit"). */
+  function reaudit(targetUrl: string) {
+    setError(null)
+    if (!workspaceId) return
+    runMutation.mutate({ url: targetUrl, device }, {
+      onSuccess: (res) => open(res.id),
+      onError: (err) => setError(errorMessage(err)),
+    })
+  }
+
   // Suggestions: the active website's tracked pages (newest checked first).
   const sitePages = useSitePages(workspaceId, activeDomain?.id ?? null, 1, "", "checked", 50)
   const pageOptions = React.useMemo(() => {
@@ -100,6 +128,7 @@ export function usePageAuditScreen() {
   return {
     workspaceId, url, setUrl, device, setDevice, running, error, setError, result,
     resultLoading: Boolean(openId) && auditQuery.isPending, resultError: auditQuery.isError,
-    history, historyForId, runAudit, openHistory, deltas, gscMatch, pageOptions,
+    history, historyForId, runAudit, openHistory, reaudit, deltas, gscMatch, pageOptions,
+    storedScore, storedLoading: Boolean(workspaceId && urlParam && !openId) && storedQuery.isPending,
   }
 }

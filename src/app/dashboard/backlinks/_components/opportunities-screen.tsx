@@ -6,7 +6,7 @@ import { toast } from "sonner"
 
 import { NoDomain } from "@/components/dashboard/current-domain"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { useDashboard } from "@/components/dashboard/dashboard-context"
+import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Card } from "@/components/ui/card"
 import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
@@ -16,7 +16,8 @@ import LinkGapPage from "./link-gap-screen"
 import { ProfileLists } from "./profile-lists"
 
 function ReclamationScreen() {
-  const { activeWorkspace, activeDomain } = useDashboard()
+  const activeWorkspace = useActiveWorkspace()
+  const activeDomain = useActiveDomain()
   const wid = activeWorkspace?.id ?? null
   const did = activeDomain?.id ?? null
   const profile = useBacklinkProfile(wid, did, null)
@@ -55,7 +56,7 @@ function ReclamationScreen() {
 type Tab = "gap" | "reclaim"
 
 export default function OpportunitiesScreen() {
-  const { activeDomain } = useDashboard()
+  const activeDomain = useActiveDomain()
   const [tab, setTab] = React.useState<Tab>("gap")
   const HEADER = (
     <PageHeader title={<><Split className="size-5 text-primary" /> Opportunities</>}
