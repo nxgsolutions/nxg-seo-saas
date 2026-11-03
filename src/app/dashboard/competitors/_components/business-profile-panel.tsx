@@ -34,16 +34,11 @@ import {
 } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 
-function formatUpdated(iso: string | null): string | null {
-  if (!iso) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })
-}
+import { formatDate } from "@/lib/utils"
+import { FormattedDate } from "@/components/ui/formatted-date"
+
+/** "" when empty/invalid — falsy, so `formatUpdated(x) && …` still works. */
+const formatUpdated = (iso: string | null): string => formatDate(iso)
 
 export function BusinessProfilePanel({
   domainId,
@@ -125,7 +120,7 @@ export function BusinessProfilePanel({
             </span>
           ) : updated ? (
             <span className="text-xs text-muted-foreground">
-              Updated {updated}
+              Updated <FormattedDate value={query.data?.extracted_at} />
             </span>
           ) : null}
           <ChevronDown

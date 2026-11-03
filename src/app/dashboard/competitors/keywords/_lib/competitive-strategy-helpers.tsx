@@ -15,7 +15,4 @@ export function rankColor(r: number | null) {
     : r >= 40 ? "text-amber-500" : "text-muted-foreground"
 }
 
-export function formatFetched(iso: string | null) {
-  if (!iso) return ""
-  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
-}
+export { formatDate as formatFetched } from "@/lib/utils"

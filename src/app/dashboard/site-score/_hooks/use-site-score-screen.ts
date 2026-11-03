@@ -1,11 +1,15 @@
 "use client"
 
 import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
-import { useSiteScore, useSiteScoreStatus, useStartSiteScore } from "@/hooks/api/use-domain-score"
+import {
+  useSiteScore,
+  useSiteScoreStatus,
+  useStartSiteScore,
+} from "@/hooks/api/use-domain-score"
 import { errorMessage } from "@/lib/api/client"
 import * as React from "react"
 
-/** Whole-site score state for the active website: start a run, track progress, read the result. */
+/** SEO Score state for the active website: start a run, track progress, read the result. */
 export function useSiteScoreScreen() {
   const activeWorkspace = useActiveWorkspace()
   const activeDomain = useActiveDomain()
@@ -17,10 +21,17 @@ export function useSiteScoreScreen() {
   const latest = view?.latest ?? null
 
   const startMutation = useStartSiteScore(workspaceId, domainId)
-  const statusQuery = useSiteScoreStatus(workspaceId, domainId, Boolean(workspaceId && domainId))
+  const statusQuery = useSiteScoreStatus(
+    workspaceId,
+    domainId,
+    Boolean(workspaceId && domainId),
+  )
   const job = statusQuery.data ?? view?.running ?? null
 
-  const running = Boolean(view?.running) || job?.status === "running" || startMutation.isPending
+  const running =
+    Boolean(view?.running) ||
+    job?.status === "running" ||
+    startMutation.isPending
   const jobError = job?.status === "error" ? job.error : null
 
   const [error, setError] = React.useState<string | null>(null)
@@ -31,7 +42,9 @@ export function useSiteScoreScreen() {
       setError("Pick a website first.")
       return
     }
-    startMutation.mutate(undefined, { onError: (err) => setError(errorMessage(err)) })
+    startMutation.mutate(undefined, {
+      onError: (err) => setError(errorMessage(err)),
+    })
   }
 
   // Distribution of the sampled page scores + the weakest pages first.
@@ -43,14 +56,27 @@ export function useSiteScoreScreen() {
       poor: pages.filter((p) => p.score < 50).length,
     }
   }, [latest])
-  const worstPages = React.useMemo(() => (latest?.pages ?? []).slice(0, 8), [latest])
+  const worstPages = React.useMemo(
+    () => (latest?.pages ?? []).slice(0, 8),
+    [latest],
+  )
 
   return {
-    workspaceId, domainId, domainName: activeDomain?.domain ?? null,
+    workspaceId,
+    domainId,
+    domainName: activeDomain?.domain ?? null,
     loading: viewQuery.isPending && Boolean(workspaceId && domainId),
-    latest, history: view?.history ?? [], running, job, jobError,
-    error, setError, start, starting: startMutation.isPending,
-    distribution, worstPages,
+    latest,
+    history: view?.history ?? [],
+    running,
+    job,
+    jobError,
+    error,
+    setError,
+    start,
+    starting: startMutation.isPending,
+    distribution,
+    worstPages,
     canRefetch: view?.can_refetch ?? true,
     nextRefetchAt: view?.next_refetch_at ?? null,
   }

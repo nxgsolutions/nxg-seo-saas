@@ -13,6 +13,29 @@ export function daysUntil(iso: string | null): number | null {
   return ms > 0 ? Math.ceil(ms / 86_400_000) : null
 }
 
+/**
+ * The app's ONE calendar-date format: "2 Nov 2026". Accepts an ISO string,
+ * Date, or epoch ms; returns "" for empty/invalid input. Use this (or the
+ * <FormattedDate> component) everywhere a date is shown so every screen reads
+ * the same. Locale is pinned to en-GB for a stable day-month-year order.
+ */
+export function formatDate(value: string | number | Date | null | undefined): string {
+  if (value == null || value === "") return ""
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+}
+
+/** Same format plus time — "2 Nov 2026, 14:30" — for tooltips and precise logs. */
+export function formatDateTime(value: string | number | Date | null | undefined): string {
+  if (value == null || value === "") return ""
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+  })
+}
+
 export function timeAgo(iso: string): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ""

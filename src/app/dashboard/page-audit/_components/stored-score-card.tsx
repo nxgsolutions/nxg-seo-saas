@@ -5,7 +5,8 @@ import { band, CATEGORY_LABELS, CATEGORY_ORDER, scoreBar, scoreColor } from "@/a
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import type { StoredPageScore } from "@/lib/api/page-score"
-import { cn, timeAgo } from "@/lib/utils"
+import { cn } from "@/lib/utils"
+import { FormattedDate } from "@/components/ui/formatted-date"
 import { AlertTriangle, CheckCircle2, Gauge, Loader2, XCircle } from "lucide-react"
 
 const STATUS_ICON = {
@@ -34,7 +35,7 @@ export function StoredScoreCard({ score, running, onReaudit }: {
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", b.cls)}>{b.label}</span>
-              <span className="text-xs text-muted-foreground">Last scored {timeAgo(score.captured_at)}</span>
+              <span className="text-xs text-muted-foreground">Last scored <FormattedDate value={score.captured_at} /></span>
             </div>
             <p className="truncate text-sm font-medium">{score.url.replace(/^https?:\/\//, "")}</p>
             <p className="text-xs text-muted-foreground">This is the saved score from your last site check. Re-audit for the full, up-to-date report.</p>

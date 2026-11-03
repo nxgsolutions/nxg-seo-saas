@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { type CompetitorAnalytics } from "@/lib/api/opportunity"
 import { cn } from "@/lib/utils"
 import { Loader2, RefreshCw } from "lucide-react"
-import { compact, formatFetched, rankColor } from "../_lib/competitive-strategy-helpers"
+import { compact, rankColor } from "../_lib/competitive-strategy-helpers"
+import { FormattedDate } from "@/components/ui/formatted-date"
 import { HeaderWithHelp } from "@/components/ui/column-help"
 import { COLUMN_HELP } from "@/lib/column-help"
 
@@ -31,7 +32,7 @@ export function CompetitorAnalyticsCard({ analytics, loading, refreshing, error,
           </CardTitle>
           <CardDescription>
             Estimated monthly organic traffic, ranking keywords and traffic share
-            {analytics?.fetched_at && <> · updated {formatFetched(analytics.fetched_at)}</>}
+            {analytics?.fetched_at && <> · updated <FormattedDate value={analytics.fetched_at} /></>}
           </CardDescription>
         </div>
         {analytics?.configured !== false && (

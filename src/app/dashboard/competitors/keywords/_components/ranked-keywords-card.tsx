@@ -28,7 +28,8 @@ import {
 } from "@/lib/api/opportunity"
 import { fetchAllPages } from "@/lib/api/pagination"
 import { downloadCsv } from "@/lib/report/csv"
-import { cn, timeAgo } from "@/lib/utils"
+import { cn, formatDate } from "@/lib/utils"
+import { FormattedDate } from "@/components/ui/formatted-date"
 import {
   ArrowDown,
   ArrowUp,
@@ -61,16 +62,16 @@ import { ColumnHelp, HeaderWithHelp } from "@/components/ui/column-help"
 import { COLUMN_HELP } from "@/lib/column-help"
 
 const SCOPES: { id: RankedScope; label: string; hint: string }[] = [
-  {
-    id: "top",
-    label: "Top 100",
-    hint: "Top keywords by traffic (one request)",
-  },
   // "Relevant" = the backend topic rule (DATAFORSEO_RELEVANT_KEYWORD_REGEX) + position/volume limits.
   {
     id: "relevant",
     label: "Relevant",
     hint: "Keywords on your topic that rank in the top 20 with 50+ searches",
+  },
+  {
+    id: "top",
+    label: "Top 100",
+    hint: "Top keywords by traffic",
   },
   // "all" stays in the map for labelling any legacy stored run, but is hidden
   // from the scope selector (see VISIBLE_SCOPES) — it's the only costly scope.
@@ -242,8 +243,8 @@ export function RankedKeywordsCard({
   const [show, setShow] = React.useState<"all" | "gap" | "common">("all")
   const [sort, setSort] = React.useState<Sort>({ key: "etv", dir: "desc" })
   const [page, setPage] = React.useState(1)
-  // Scope being viewed (null = newest stored run of any scope).
-  const [scope, setScope] = React.useState<RankedScope | null>(null)
+  // Scope being viewed; Relevant is the default.
+  const [scope, setScope] = React.useState<RankedScope>("relevant")
   const [view, setView] = React.useState<"keywords" | "pages">("keywords")
   const [urlFilter, setUrlFilter] = React.useState<string | null>(null)
   const [estimate, setEstimate] = React.useState<RankedKeywordsEstimate | null>(
@@ -251,11 +252,11 @@ export function RankedKeywordsCard({
   )
   const [exporting, setExporting] = React.useState(false)
 
-  // A different domain starts from its newest run (adjusted during render).
+  // A different domain starts from the default scope (adjusted during render).
   const [prevSelected, setPrevSelected] = React.useState(selected)
   if (selected !== prevSelected) {
     setPrevSelected(selected)
-    setScope(null)
+    setScope("relevant")
     setEstimate(null)
     setUrlFilter(null)
     setView("keywords")
@@ -462,7 +463,7 @@ export function RankedKeywordsCard({
         domain: d,
         group: d === you ? "Your site" : st ? "Saved" : "Not loaded yet",
         hint: st
-          ? `${compact(st.items_count)} kw · ${timeAgo(st.fetched_at)}`
+          ? `${compact(st.items_count)} kw · ${formatDate(st.fetched_at)}`
           : undefined,
       }
     })
@@ -488,7 +489,8 @@ export function RankedKeywordsCard({
   const handledJob = React.useRef<string | null>(null)
   React.useEffect(() => {
     const job = discover.job
-    if (!job || job.status === "running" || handledJob.current === job.job_id) return
+    if (!job || job.status === "running" || handledJob.current === job.job_id)
+      return
     handledJob.current = job.job_id
     if (job.status === "done") {
       qc.invalidateQueries({
@@ -581,8 +583,7 @@ export function RankedKeywordsCard({
         disabled
         title="Loading new data is turned off right now"
       >
-        <RefreshCw className="size-4" />{" "}
-        {hasRows ? "Refresh" : "Load keywords"}
+        <RefreshCw className="size-4" /> {hasRows ? "Refresh" : "Load keywords"}
       </Button>
     )
   }
@@ -593,7 +594,7 @@ export function RankedKeywordsCard({
     : data.can_fetch
       ? activeScope === "top"
         ? null
-        : "You'll see how many keywords match before anything loads."
+        : ""
       : data.live_enabled && !data.is_you
         ? "Only domains on your competitor list can be loaded."
         : "Loading new data is turned off right now — saved data is still shown."
@@ -744,7 +745,7 @@ export function RankedKeywordsCard({
                     <span className="font-medium text-foreground">
                       {compact(storedHere.items_count)} {scopeLabel} keywords
                     </span>
-                    · updated {timeAgo(storedHere.fetched_at)}
+                    · updated <FormattedDate value={storedHere.fetched_at} />
                     {data.scope === activeScope &&
                     data.stop_reason &&
                     data.stop_reason !== "complete"
@@ -807,11 +808,11 @@ export function RankedKeywordsCard({
                   )
                 })}
               </div>
-              <span className="text-xs text-muted-foreground">
+              {/* <span className="text-xs text-muted-foreground">
                 {activeScope === "relevant" && data.relevant_rule
                   ? `Topic keywords · top ${data.relevant_rule.max_position} · ${data.relevant_rule.min_volume}+ searches`
                   : SCOPES.find((s) => s.id === activeScope)?.hint}
-              </span>
+              </span> */}
             </div>
 
             {/* Headline numbers — only when there is something to count */}
@@ -1269,8 +1270,8 @@ export function RankedKeywordsCard({
                     </div>
                     {!data.is_you && !data.has_our_run && (
                       <p className="px-6 pb-3 text-xs text-muted-foreground">
-                        Your positions come from your search data. Load your
-                        own domain for a full comparison.
+                        Your positions come from your search data. Load your own
+                        domain for a full comparison.
                       </p>
                     )}
                   </>

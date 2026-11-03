@@ -3,7 +3,8 @@
 import { Button } from "@/components/ui/button"
 import type { AuditDetail } from "@/lib/api/audits"
 import { downloadAuditReport } from "@/lib/report/audit-report"
-import { cn, timeAgo } from "@/lib/utils"
+import { cn } from "@/lib/utils"
+import { FormattedDate } from "@/components/ui/formatted-date"
 import { AlertTriangle, CheckCircle2, Clock, Download, ExternalLink, FileText, Gauge, Link2, XCircle } from "lucide-react"
 import { ScoreGauge } from "./score-gauge"
 
@@ -44,7 +45,7 @@ export function AuditHero({ result }: { result: AuditDetail }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", b.cls)}>{b.label}</span>
             <span className="text-xs text-muted-foreground">
-              {timeAgo(result.created_at)} · HTTP {result.status_code}{m.device ? ` · ${m.device === "mobile" ? "Mobile" : "Desktop"}` : ""}
+              <FormattedDate value={result.created_at} /> · HTTP {result.status_code}{m.device ? ` · ${m.device === "mobile" ? "Mobile" : "Desktop"}` : ""}
             </span>
           </div>
           <h2 className="truncate text-base font-semibold" title={m.title}>{m.title || result.url}</h2>

@@ -1,7 +1,8 @@
 "use client"
 
 import { Skeleton } from "@/components/ui/skeleton"
-import { cn, timeAgo } from "@/lib/utils"
+import { cn } from "@/lib/utils"
+import { FormattedDate } from "@/components/ui/formatted-date"
 import { History } from "lucide-react"
 import Link from "next/link"
 import type { usePageAuditScreen } from "../_hooks/use-page-audit-screen"
@@ -42,7 +43,7 @@ export function AuditHistory({ workspaceId, result, history, historyForId, openH
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{a.url.replace(/^https?:\/\//, "")}</span>
                   <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {timeAgo(a.created_at)}
+                    <FormattedDate value={a.created_at} />
                     <DeltaBadge delta={deltas[a.id]} />
                   </span>
                 </span>

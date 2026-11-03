@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { errorMessage } from "@/lib/api/client"
 import type { AiOverview } from "@/lib/api/ai-overview"
 import { queryKeys } from "@/lib/query/keys"
-import { cn } from "@/lib/utils"
+import { cn, formatDate, formatDateTime } from "@/lib/utils"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowRight, ChevronDown, Loader2, RefreshCw, Sparkles } from "lucide-react"
 import Link from "next/link"
@@ -16,7 +16,7 @@ const COLLAPSED_BULLETS = 2
 
 const message = (err: unknown) => errorMessage(err, "Could not write the overview.")
 
-/** "Updated today" / "Updated yesterday" / "Updated 3 days ago" / "Updated 12 Aug". */
+/** "Updated today" / "Updated yesterday" / "Updated 3 days ago" / "Updated 2 Nov 2026". */
 function updatedLabel(iso: string): string {
   const then = new Date(iso)
   if (Number.isNaN(then.getTime())) return ""
@@ -25,7 +25,7 @@ function updatedLabel(iso: string): string {
   if (days <= 0) return "Updated today"
   if (days === 1) return "Updated yesterday"
   if (days < 7) return `Updated ${days} days ago`
-  return `Updated ${then.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
+  return `Updated ${formatDate(iso)}`
 }
 
 /**
@@ -123,7 +123,7 @@ export function AiOverviewCard({ requestKey, load, className, title = "AI overvi
               {/* "ai" = rewritten by gpt-4o-mini (numbers checked against the data); "rules" = plain draft:
                   no data yet, or the AI was unavailable / failed the number check. */}
               {current.source === "ai" ? "Written by AI from your latest data" : "Quick summary of your latest data"}
-              {" · "}<span title={new Date(current.generated_at).toLocaleString()}>{updatedLabel(current.generated_at)}</span>
+              {" · "}<span title={formatDateTime(current.generated_at)}>{updatedLabel(current.generated_at)}</span>
             </p>
           )}
         </>
