@@ -14,12 +14,12 @@ import { downloadCsv } from "@/lib/report/csv"
 import { cn } from "@/lib/utils"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { scoreColor } from "@/app/dashboard/page-audit/_lib/page-audit-helpers"
-import { Ban, Check, Download, ExternalLink, FileSearch, Loader2, Minus, PenLine } from "lucide-react"
+import { Ban, Check, Download, ExternalLink, FileSearch, Loader2, Minus, PenLine, ShieldAlert } from "lucide-react"
 import Link from "next/link"
 import * as React from "react"
 import { toast } from "sonner"
 import {
-  fmtDate, INDEXABLE_FILTERS, SORT_OPTIONS, STATUS_FILTERS, TYPE_FILTERS, sortOrder, typeMeta,
+  fmtDate, INDEXABLE_FILTERS, isBlocked, SORT_OPTIONS, STATUS_FILTERS, TYPE_FILTERS, sortOrder, typeMeta,
 } from "../_lib/page-discovery-helpers"
 
 const PAGE_SIZE = 10
@@ -144,7 +144,12 @@ function Row({ row: r, sn }: {
         </span>
       </td>
       <td className="px-3 py-2.5 text-center">
-        {r.indexable == null ? <Minus className="mx-auto size-4 text-muted-foreground" aria-label="Unknown" />
+        {isBlocked(r.http_status) ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-xs font-medium text-orange-700 dark:text-orange-400"
+              title="The site's firewall / bot protection blocked our reader — indexability couldn't be determined.">
+              <ShieldAlert className="size-3" /> Blocked
+            </span>
+          ) : r.indexable == null ? <Minus className="mx-auto size-4 text-muted-foreground" aria-label="Unknown" />
           : r.indexable ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
               <Check className="size-3" /> Indexable

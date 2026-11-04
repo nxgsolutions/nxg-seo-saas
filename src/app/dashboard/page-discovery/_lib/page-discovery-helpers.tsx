@@ -30,8 +30,17 @@ export const TYPE_FILTERS = [
 export const STATUS_FILTERS = [
   { value: "all", label: "All status" },
   { value: "ok", label: "OK (200)" },
+  { value: "blocked", label: "Blocked" },
   { value: "error", label: "Errors (4xx/5xx)" },
 ]
+
+/** HTTP statuses that mean a firewall / bot-protection blocked our reader, not
+ * that the page is noindex or down. Shown as "Blocked" in the Indexable column. */
+export const BLOCK_STATUSES = [401, 403, 429, 503]
+
+export function isBlocked(httpStatus: number | null): boolean {
+  return httpStatus != null && BLOCK_STATUSES.includes(httpStatus)
+}
 
 export const INDEXABLE_FILTERS = [
   { value: "all", label: "Indexable: any" },

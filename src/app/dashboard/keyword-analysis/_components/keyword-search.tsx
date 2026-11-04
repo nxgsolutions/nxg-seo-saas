@@ -2,7 +2,10 @@
 
 import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useKeywordSearch, useRunKeywordSearch } from "@/hooks/api/use-keyword-search"
+import {
+  useKeywordSearch,
+  useRunKeywordSearch,
+} from "@/hooks/api/use-keyword-search"
 import { errorMessage } from "@/lib/api/client"
 import { Search } from "lucide-react"
 import * as React from "react"
@@ -17,7 +20,12 @@ import { SearchBar } from "./search-bar"
  * search here or by picking one from Recent searches. Data comes from TanStack
  * Query, so reopening a search is instant from cache.
  */
-export function KeywordSearch({ workspaceId, activeId, onShow, query }: {
+export function KeywordSearch({
+  workspaceId,
+  activeId,
+  onShow,
+  query,
+}: {
   workspaceId: string | null
   activeId: string | null
   onShow: (id: string) => void
@@ -55,14 +63,26 @@ export function KeywordSearch({ workspaceId, activeId, onShow, query }: {
 
   function search(term: string, scrollToResults = false) {
     if (!workspaceId) return
-    if (!term.trim()) { setInputError("Enter a seed keyword."); return }
+    if (!term.trim()) {
+      setInputError("Enter a seed keyword.")
+      return
+    }
     setInputError(null)
-    runSearch.mutate({ seed: term.trim(), country: location, language }, {
-      onSuccess: (d) => {
-        onShow(d.id)
-        if (scrollToResults) requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }))
+    runSearch.mutate(
+      { seed: term.trim(), country: location, language },
+      {
+        onSuccess: (d) => {
+          onShow(d.id)
+          if (scrollToResults)
+            requestAnimationFrame(() =>
+              resultsRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              }),
+            )
+        },
       },
-    })
+    )
   }
 
   // Opened from a keyword's "+" menu ("View more ideas"): search that keyword once.
@@ -77,28 +97,54 @@ export function KeywordSearch({ workspaceId, activeId, onShow, query }: {
 
   const running = runSearch.isPending
   const opening = Boolean(activeId) && opened.isPending
-  const error = inputError
-    ?? (runSearch.isError ? errorMessage(runSearch.error, "Could not run keyword search.") : null)
-    ?? (opened.isError ? errorMessage(opened.error, "Could not load that search.") : null)
+  const error =
+    inputError ??
+    (runSearch.isError
+      ? errorMessage(runSearch.error, "Could not run keyword search.")
+      : null) ??
+    (opened.isError
+      ? errorMessage(opened.error, "Could not load that search.")
+      : null)
 
   return (
     <div className="space-y-5">
       <SearchBar
-        value={seed} onChange={setSeed} language={language} setLanguage={setLanguage}
-        location={location} setLocation={setLocation} loading={running || !workspaceId}
-        placeholder="e.g. upsc pyq" label="Discover new keywords" icon={<Search className="size-4" />}
-        onSubmit={(e) => { e?.preventDefault(); search(seed) }}
+        value={seed}
+        onChange={setSeed}
+        language={language}
+        setLanguage={setLanguage}
+        location={location}
+        setLocation={setLocation}
+        loading={running || !workspaceId}
+        placeholder="e.g. your keyword"
+        label="Discover new keywords"
+        icon={<Search className="size-4" />}
+        onSubmit={(e) => {
+          e?.preventDefault()
+          search(seed)
+        }}
       />
 
-      {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <div ref={resultsRef} className="scroll-mt-20 space-y-5">
         {running ? (
-          <KeywordResultsSkeleton label={`Finding keyword ideas for “${seed.trim()}”… this can take a few seconds.`} />
+          <KeywordResultsSkeleton
+            label={`Finding keyword ideas for “${seed.trim()}”… this can take a few seconds.`}
+          />
         ) : opening ? (
           <KeywordResultsSkeleton label="Opening saved search…" />
         ) : detail && workspaceId ? (
-          <KeywordResults key={detail.id} detail={detail} workspaceId={workspaceId} domainId={activeDomain?.id ?? null} />
+          <KeywordResults
+            key={detail.id}
+            detail={detail}
+            workspaceId={workspaceId}
+            domainId={activeDomain?.id ?? null}
+          />
         ) : null}
       </div>
     </div>

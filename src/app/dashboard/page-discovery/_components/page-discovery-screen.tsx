@@ -357,6 +357,19 @@ function StatusArea({ screen: s }: { screen: Screen }) {
       />
     )
   }
+  // Paused: the site's firewall started rate-limiting our reader mid-scan. We
+  // keep everything read so far (and never wipe earlier data); running again
+  // later continues the remaining pages once the site has cooled down.
+  if (s.status.status === "partial") {
+    return (
+      <Banner
+        tone="warn"
+        icon={<AlertTriangle className="size-5" />}
+        title="Scan paused — site rate-limited us"
+        text={`${s.domain?.domain ?? "This site"}'s firewall started limiting automated requests, so we paused. We saved the ${(s.status.pages_enriched ?? 0).toLocaleString()} pages we read and kept earlier data for the rest. Run the scan again in a little while to continue the remaining pages.`}
+      />
+    )
+  }
   // No sitemap — warn, recommend adding one, and ask before crawling (slower,
   // heavier on the site), instead of crawling automatically.
   if (s.status.source === "no_sitemap") {
