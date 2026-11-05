@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 
 import { brand } from "@/config/brand"
@@ -79,6 +80,7 @@ function NavGroup({
 }) {
   const anyActive = isActive(pathname, item)
   const [open, setOpen] = React.useState(true)
+  const reduceMotion = useReducedMotion()
 
   // Reopen on navigation to a child; still allow manual collapse.
   const [previousPath, setPreviousPath] = React.useState(pathname)
@@ -102,13 +104,24 @@ function NavGroup({
         <span className="flex-1 text-left">{item.label}</span>
         <ChevronDown className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
-      {open ? (
-        <div className="mt-1 ml-4 flex flex-col gap-1 border-l border-primary/15 pl-3">
-          {(item.children ?? []).map((child) => (
-            <NavLink key={child.href} item={child} pathname={pathname} onNavigate={onNavigate} />
-          ))}
-        </div>
-      ) : null}
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            key="submenu"
+            className="overflow-hidden"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <div className="mt-1 ml-4 flex flex-col gap-1 border-l border-primary/15 pl-3">
+              {(item.children ?? []).map((child) => (
+                <NavLink key={child.href} item={child} pathname={pathname} onNavigate={onNavigate} />
+              ))}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   )
 }

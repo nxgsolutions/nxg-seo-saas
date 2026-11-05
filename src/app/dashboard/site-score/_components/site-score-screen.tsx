@@ -275,6 +275,7 @@ export function SiteScoreOverview() {
     domainName,
     canRefetch,
     nextRefetchAt,
+    lastCrawledAt,
   } = s
   const b = latest ? band(latest.overall) : null
   const waitDays = daysUntil(nextRefetchAt)
@@ -396,13 +397,18 @@ export function SiteScoreOverview() {
                   )}
                   <span className="text-xs text-muted-foreground">
                     Updated {timeAgo(latest.created_at)}
+                    {lastCrawledAt ? ` · pages crawled ${timeAgo(lastCrawledAt)}` : ""}
                   </span>
                 </div>
                 <h2 className="truncate text-lg font-semibold">{domainName}</h2>
                 <p className="text-sm text-muted-foreground">
                   Scored {latest.pages_scored} of{" "}
                   {latest.pages_total.toLocaleString()} discovered pages ·{" "}
-                  {latest.pages_indexable.toLocaleString()} indexable.
+                  {latest.pages_indexable.toLocaleString()} indexable. To refresh the
+                  underlying pages, run{" "}
+                  <Link href="/dashboard/page-discovery" className="font-medium text-primary hover:underline">
+                    Page Discovery
+                  </Link>.
                 </p>
                 <div className="grid gap-2 pt-1 sm:grid-cols-2 sm:max-w-md">
                   <SubScore label="Page quality" score={latest.page_quality} />

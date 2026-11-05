@@ -221,11 +221,14 @@ export function EditableCompetitorsPanel({
           >
             <span className="sr-only">Loading competitors…</span>
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-3">
+              <div key={i} className="flex items-center gap-4 px-4 py-3.5">
                 <Skeleton className="h-3 w-4" />
-                <Skeleton className="size-5 rounded" />
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-3 w-24" />
+                <Skeleton className="size-10 rounded-xl" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+                <Skeleton className="h-8 w-20 rounded-lg" />
               </div>
             ))}
           </div>
@@ -243,74 +246,80 @@ export function EditableCompetitorsPanel({
               // clickable while a click anywhere else opens the details.
               <li
                 key={r.id}
-                className="group relative flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40"
+                className="group relative flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-muted/50"
               >
                 <Link
                   href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(r.competitor)}`}
                   aria-label={`See keywords ${r.competitor} ranks for`}
-                  className="absolute inset-0 z-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  className="absolute inset-0 z-0 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                 />
-                <span className="pointer-events-none relative z-10 w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                <span className="pointer-events-none relative z-10 w-4 shrink-0 text-right text-[13px] font-medium tabular-nums text-muted-foreground/60">
                   {i + 1}
                 </span>
-                <div className="pointer-events-none relative z-10 shrink-0">
-                  <Favicon domain={r.competitor} />
+                {/* Bigger favicon in a rounded tile for a crisp, modern look.
+                    The icon fills most of the tile; the tile itself stays 40px. */}
+                <div className="pointer-events-none relative z-10 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/30">
+                  <Favicon domain={r.competitor} size={28} />
                 </div>
-                <div className="pointer-events-none relative z-10 min-w-0 flex-1">
+                <div className="pointer-events-none relative z-10 min-w-0 flex-1 space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="truncate font-medium text-foreground transition-colors group-hover:text-primary">
+                    <span className="truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary">
                       {r.label || r.competitor}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {r.competitor}
                     </span>
                     {/* Match confidence — shown for every competitor (discovered
                         or manually added), since manual adds are now verified
                         and scored the same way. */}
                     {r.confidence ? (
-                      <Badge variant="outline" className="text-[10px] capitalize">
+                      <Badge variant="outline" className="shrink-0 text-[10px] font-medium capitalize">
                         {r.confidence} match
                       </Badge>
                     ) : null}
                   </div>
+                  {r.label && r.label !== r.competitor ? (
+                    <p className="truncate text-[13px] text-muted-foreground">
+                      {r.competitor}
+                    </p>
+                  ) : null}
                   {r.reason ? (
-                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                    <p className="line-clamp-1 text-xs text-muted-foreground/80">
                       {r.reason}
                     </p>
                   ) : null}
                 </div>
                 {r.avg_position != null ? (
-                  <span className="pointer-events-none relative z-10 shrink-0 text-xs tabular-nums text-muted-foreground">
+                  <span className="pointer-events-none relative z-10 hidden shrink-0 text-xs tabular-nums text-muted-foreground sm:block">
                     {`avg #${r.avg_position}`}
                     {r.keywords_shared != null
                       ? ` · ${r.keywords_shared} kw`
                       : ""}
                   </span>
                 ) : null}
-                <a
-                  href={`https://${r.competitor}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`Open ${r.competitor} in a new tab`}
-                  aria-label={`Open ${r.competitor} in a new tab`}
-                  className="relative z-10 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <ExternalLink className="size-4" />
-                </a>
-                <span className="pointer-events-none relative z-10 hidden shrink-0 items-center gap-0.5 text-sm font-medium text-primary sm:inline-flex">
-                  See keywords
-                  <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="relative z-10 shrink-0 text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => setToRemove(r)}
-                  disabled={busy}
-                  aria-label={`Remove ${r.competitor}`}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <div className="relative z-10 flex shrink-0 items-center gap-1">
+                  <a
+                    href={`https://${r.competitor}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Open ${r.competitor} in a new tab`}
+                    aria-label={`Open ${r.competitor} in a new tab`}
+                    className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <ExternalLink className="size-4" />
+                  </a>
+                  <span className="pointer-events-none hidden items-center gap-0.5 pl-1 pr-0.5 text-sm font-medium text-primary lg:inline-flex">
+                    See keywords
+                    <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-8 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setToRemove(r)}
+                    disabled={busy}
+                    aria-label={`Remove ${r.competitor}`}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

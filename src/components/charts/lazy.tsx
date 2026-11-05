@@ -71,3 +71,13 @@ export const PageTypeDonut = dynamic(
   () => import("./page-type-donut").then((m) => m.PageTypeDonut),
   { ssr: false, loading: () => <Skeleton className="h-56" /> }
 )
+
+export const CompetitorTrafficChart = dynamic(
+  () => import("./competitor-comparison-chart").then((m) => m.CompetitorTrafficChart),
+  { ssr: false, loading: () => <Skeleton className="h-[20rem]" /> }
+)
+
+export const CompetitorShareDonut = dynamic(
+  () => import("./competitor-comparison-chart").then((m) => m.CompetitorShareDonut),
+  { ssr: false, loading: () => <Skeleton className="h-52" /> }
+)

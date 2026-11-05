@@ -75,6 +75,11 @@ export const navSections: NavSection[] = [
         icon: Users,
       },
       {
+        label: "Competitive Strategy",
+        href: "/dashboard/competitive-strategy",
+        icon: Split,
+      },
+      {
         label: "Action Plan",
         href: "/dashboard/opportunity-research",
         icon: TrendingUp,

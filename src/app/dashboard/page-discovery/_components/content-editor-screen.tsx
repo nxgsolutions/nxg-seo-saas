@@ -21,24 +21,31 @@ import { cn } from "@/lib/utils"
 import {
   AlertTriangle,
   ArrowLeft,
-  Bold,
   DownloadCloud,
   ExternalLink,
   FileSearch,
-  Heading2,
-  Heading3,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
   Loader2,
   RefreshCw,
   Target,
 } from "lucide-react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import * as React from "react"
 import { cleanEditorHtml } from "../_lib/editor-html"
+
+// CKEditor touches the DOM at import time, so load it client-only (ssr: false),
+// matching the project's lazy-chart pattern. A skeleton holds the layout while
+// the editor chunk loads.
+const RichTextEditor = dynamic(
+  () => import("./rich-text-editor").then((m) => m.RichTextEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[34rem] w-full animate-pulse rounded-lg border border-border bg-muted/30" />
+    ),
+  },
+)
 
 const BACK_HREF = "/dashboard/page-discovery"
 
@@ -108,8 +115,6 @@ function Editor({
   wid: string
   did: string
 }) {
-  const editorRef = React.useRef<HTMLDivElement>(null)
-
   const contentQuery = usePageContent(wid, did, pageId)
   const refetch = useRefetchPageContent(wid, did, pageId)
   const content = contentQuery.data ?? null
@@ -118,40 +123,29 @@ function Editor({
   const [meta, setMeta] = React.useState("")
   const [keyword, setKeyword] = React.useState("")
   const [bodyHtml, setBodyHtml] = React.useState("")
+  // Frozen HTML used to seed the rich-text editor on mount. Kept separate from
+  // the live `bodyHtml` so it only changes when a page is (re-)fetched — passing
+  // an ever-changing value to CKEditor would reset the caret on every keystroke.
+  const [editorSeed, setEditorSeed] = React.useState("")
   const [url, setUrl] = React.useState("")
 
   // Seed the editable draft from fetched content once per fetch (setState during
   // render — the sanctioned "reset state when a prop changes" pattern). A live
   // re-fetch returns a new fetched_at, which re-seeds the fields and the editor.
+  // cleanEditorHtml() strips presentational bold so the body doesn't open
+  // entirely bold; both the live draft and the editor seed start from it so the
+  // score reflects exactly what's shown.
   const stamp = content && !content.error ? `${content.fetched_at ?? ""}|${content.url}` : null
   const [seeded, setSeeded] = React.useState<string | null>(null)
   if (stamp && stamp !== seeded) {
+    const cleaned = cleanEditorHtml(content!.body_html)
     setSeeded(stamp)
     setTitle(content!.title)
     setMeta(content!.meta)
-    setBodyHtml(content!.body_html)
+    setBodyHtml(cleaned)
+    setEditorSeed(cleaned)
     setUrl(content!.url)
   }
-
-  // Push the seeded HTML into the uncontrolled contentEditable surface. This is a
-  // DOM sync (no setState), so it belongs in an effect and keyed on the seed.
-  // cleanEditorHtml() strips stray bold so the caret doesn't inherit it.
-  React.useLayoutEffect(() => {
-    if (seeded && editorRef.current)
-      editorRef.current.innerHTML = cleanEditorHtml(bodyHtml)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seeded])
-
-  // Make new blocks plain <p> (not <div>) and keep bold as <b> tags, so typed
-  // text matches the normalized content and never picks up a sticky style.
-  React.useEffect(() => {
-    try {
-      document.execCommand("defaultParagraphSeparator", false, "p")
-      document.execCommand("styleWithCSS", false, "false")
-    } catch {
-      /* execCommand is best-effort; the editor still works without it. */
-    }
-  }, [])
 
   const loadError =
     content?.error ??
@@ -177,12 +171,6 @@ function Editor({
   )
   const result = scoreQuery.data ?? null
   const scoring = scoreQuery.isFetching
-
-  function exec(cmd: string, value?: string) {
-    document.execCommand(cmd, false, value)
-    editorRef.current?.focus()
-    if (editorRef.current) setBodyHtml(editorRef.current.innerHTML)
-  }
 
   const score = result?.score ?? null
   const stats = [
@@ -319,19 +307,12 @@ function Editor({
                     />
                   </Field>
 
-                  <Field label="Content">
-                    <div className="overflow-hidden rounded-lg border border-border">
-                      <Toolbar exec={exec} />
-                      <div
-                        ref={editorRef}
-                        contentEditable
-                        suppressContentEditableWarning
-                        onInput={(e) =>
-                          setBodyHtml((e.target as HTMLDivElement).innerHTML)
-                        }
-                        className="prose-editor max-h-none min-h-[32rem] w-full overflow-y-auto bg-background px-5 py-4 text-sm leading-relaxed outline-none dark:bg-input/20"
-                      />
-                    </div>
+                  <Field label="Content" as="div">
+                    <RichTextEditor
+                      key={seeded ?? "unseeded"}
+                      initialData={editorSeed}
+                      onChange={setBodyHtml}
+                    />
                     <p className="mt-2 text-xs text-muted-foreground">
                       Edits here are a working draft for scoring — copy the HTML
                       into your CMS when you&apos;re happy with the score.
@@ -446,14 +427,21 @@ function Field({
   hint,
   hintTone = "muted",
   children,
+  as = "label",
 }: {
   label: string
   hint?: string
   hintTone?: "muted" | "warn"
   children: React.ReactNode
+  // Use "div" when the field wraps a complex widget that contains its own
+  // buttons (e.g. the CKEditor toolbar). A <label> forwards any click inside it
+  // to its first labelable control, so a <label> here would make clicking the
+  // editor body fire the first toolbar button (opening the heading dropdown).
+  as?: "label" | "div"
 }) {
+  const Wrapper = as
   return (
-    <label className="block">
+    <Wrapper className="block">
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <span className="text-sm font-medium">{label}</span>
         {hint && (
@@ -470,84 +458,7 @@ function Field({
         )}
       </div>
       {children}
-    </label>
+    </Wrapper>
   )
 }
 
-function Toolbar({ exec }: { exec: (cmd: string, value?: string) => void }) {
-  const btn =
-    "flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-  return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/40 px-2 py-1.5">
-      <button
-        type="button"
-        className={btn}
-        title="Heading 2"
-        onClick={() => exec("formatBlock", "H2")}
-      >
-        <Heading2 className="size-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        title="Heading 3"
-        onClick={() => exec("formatBlock", "H3")}
-      >
-        <Heading3 className="size-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        title="Paragraph"
-        onClick={() => exec("formatBlock", "P")}
-      >
-        <span className="text-xs font-semibold">P</span>
-      </button>
-      <span className="mx-1 h-5 w-px bg-border" />
-      <button
-        type="button"
-        className={btn}
-        title="Bold"
-        onClick={() => exec("bold")}
-      >
-        <Bold className="size-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        title="Italic"
-        onClick={() => exec("italic")}
-      >
-        <Italic className="size-4" />
-      </button>
-      <span className="mx-1 h-5 w-px bg-border" />
-      <button
-        type="button"
-        className={btn}
-        title="Bulleted list"
-        onClick={() => exec("insertUnorderedList")}
-      >
-        <List className="size-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        title="Numbered list"
-        onClick={() => exec("insertOrderedList")}
-      >
-        <ListOrdered className="size-4" />
-      </button>
-      <button
-        type="button"
-        className={cn(btn)}
-        title="Add link"
-        onClick={() => {
-          const u = window.prompt("Link URL")
-          if (u) exec("createLink", u)
-        }}
-      >
-        <Link2 className="size-4" />
-      </button>
-    </div>
-  )
-}

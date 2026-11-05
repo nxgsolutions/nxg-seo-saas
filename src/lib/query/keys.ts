@@ -57,6 +57,8 @@ export const queryKeys = {
   },
   strategy: (wid: string, did: string, scope: string) => [...dom(wid, did), "strategy", scope] as const,
   competitorAnalytics: (wid: string, did: string) => [...dom(wid, did), "competitor-analytics"] as const,
+  competitorAnalyticsHistory: (wid: string, did: string) =>
+    [...dom(wid, did), "competitor-analytics-history"] as const,
   competitorKeywords: (wid: string, did: string, competitor: string, kind: string) =>
     [...dom(wid, did), "competitor-keywords", competitor, kind] as const,
   actionPlan: (wid: string, did: string) => [...dom(wid, did), "action-plan"] as const,

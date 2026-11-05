@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Dialog } from "@base-ui/react/dialog"
+import { motion, useReducedMotion } from "motion/react"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
@@ -23,6 +24,7 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const reduceMotion = useReducedMotion()
 
   // Close the mobile drawer on route change (adjust during render).
   const [prevPath, setPrevPath] = React.useState(pathname)
@@ -38,11 +40,17 @@ export default function DashboardLayout({
       {/* The app fills the viewport up to an ultrawide cap, then centers beyond
           it. `self-center` (not mx-auto) is required because <body> is a column
           flex container — auto margins don't center on its cross axis. */}
-      <div className={`dashboard-shell min-h-dvh w-full max-w-[3440px] self-center lg:grid ${collapsed ? "lg:grid-cols-[4.5rem_minmax(0,1fr)]" : "lg:grid-cols-[17rem_minmax(0,1fr)]"}`}>
-        {/* Desktop sidebar — sticky within the centered shell */}
-        <aside className="hidden lg:block lg:h-dvh lg:sticky lg:top-0">
+      <div className="dashboard-shell min-h-dvh w-full max-w-[3440px] self-center lg:grid lg:grid-cols-[auto_minmax(0,1fr)]">
+        {/* Desktop sidebar — sticky within the centered shell. The width animates
+            on collapse/expand; the `auto` grid track follows it. */}
+        <motion.aside
+          className="hidden overflow-hidden lg:block lg:h-dvh lg:sticky lg:top-0"
+          initial={false}
+          animate={{ width: collapsed ? "4.5rem" : "17rem" }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+        >
           <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
-        </aside>
+        </motion.aside>
 
         <a href="#dashboard-content" className="dashboard-skip-link">Skip to content</a>
         <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>

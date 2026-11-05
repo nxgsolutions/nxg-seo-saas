@@ -79,5 +79,6 @@ export function useSiteScoreScreen() {
     worstPages,
     canRefetch: view?.can_refetch ?? true,
     nextRefetchAt: view?.next_refetch_at ?? null,
+    lastCrawledAt: view?.last_crawled_at ?? null,
   }
 }

@@ -228,6 +228,29 @@ export interface CompetitorAnalytics {
   refresh: CompetitorAnalyticsRefresh | null
 }
 
+export interface AnalyticsHistoryPoint {
+  /** ISO yyyy-mm-dd */
+  captured_on: string
+  organic_traffic: number
+  ranking_keywords: number
+}
+
+export interface AnalyticsHistorySeries {
+  domain: string
+  is_you: boolean
+  points: AnalyticsHistoryPoint[]
+}
+
+/** Per-competitor estimated-traffic / ranking-keyword trend from stored snapshots. */
+export interface CompetitorAnalyticsHistory {
+  domain: string
+  environment: "live" | "sandbox"
+  country: string
+  /** Union of all captured dates, ascending. */
+  dates: string[]
+  competitors: AnalyticsHistorySeries[]
+}
+
 function base(wid: string, did: string) {
   return `/api/workspaces/${wid}/domains/${did}/opportunity`
 }
@@ -273,6 +296,12 @@ export const opportunityApi = {
   competitorAnalytics: (wid: string, did: string, country?: AnalyticsCountry) =>
     apiClient.get<CompetitorAnalytics>(
       `${base(wid, did)}/strategy/analytics${country ? `?country=${country}` : ""}`),
+
+  /** Estimated-traffic / ranking-keyword trend over time, one series per competitor
+   * (DB only — built from stored snapshots, never a paid call). */
+  competitorAnalyticsHistory: (wid: string, did: string, country?: AnalyticsCountry) =>
+    apiClient.get<CompetitorAnalyticsHistory>(
+      `${base(wid, did)}/strategy/analytics/history${country ? `?country=${country}` : ""}`),
 
   /** Fetches stale/missing metrics from DataForSEO (paid) and stores them. */
   refreshCompetitorAnalytics: (

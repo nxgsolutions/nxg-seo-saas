@@ -58,6 +58,8 @@ export interface DomainScoreView {
   /** Whether a fresh SEO Score may run now, and when the next one is due. */
   can_refetch: boolean
   next_refetch_at: string | null
+  /** When Page Discovery last crawled any page (the data's real freshness). */
+  last_crawled_at: string | null
 }
 
 const base = (wid: string, did: string) =>

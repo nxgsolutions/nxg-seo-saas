@@ -347,6 +347,75 @@
 .prose-editor:focus { outline: none; }
 .prose-editor:empty::before { content: "Start writing…"; color: var(--muted-foreground); }
 
+/* CKEditor 5 content editor — map the editor's theme variables onto the
+   dashboard design tokens so borders, radius, background and text follow the
+   app (including dark mode, since the tokens flip under `.dark`). The editor
+   ships its own structural + content styles via ckeditor5.css; we only retint
+   it and give the editable a comfortable minimum height. */
+.ck-editor-host {
+  --ck-border-radius: var(--radius);
+  --ck-color-base-background: var(--background);
+  --ck-color-base-border: var(--border);
+  --ck-color-base-text: var(--foreground);
+  --ck-color-text: var(--foreground);
+  --ck-color-shadow-drop: oklch(0 0 0 / 8%);
+  --ck-color-shadow-inner: oklch(0 0 0 / 6%);
+  /* Toolbar */
+  --ck-color-toolbar-background: var(--muted);
+  --ck-color-toolbar-border: var(--border);
+  --ck-color-button-default-background: transparent;
+  --ck-color-button-default-hover-background: var(--accent);
+  --ck-color-button-default-active-background: var(--accent);
+  --ck-color-button-on-background: var(--accent);
+  --ck-color-button-on-hover-background: var(--accent);
+  --ck-color-button-on-color: var(--primary);
+  /* Dropdowns / panels / lists */
+  --ck-color-panel-background: var(--popover);
+  --ck-color-panel-border: var(--border);
+  --ck-color-dropdown-panel-background: var(--popover);
+  --ck-color-list-background: var(--popover);
+  --ck-color-list-button-hover-background: var(--accent);
+  --ck-color-list-button-on-background: var(--accent);
+  --ck-color-list-button-on-text: var(--primary);
+  /* Focus + links */
+  --ck-color-focus-border: var(--ring);
+  --ck-color-link-default: var(--brand);
+  width: 100%;
+}
+.ck-editor-host .ck.ck-editor { width: 100%; }
+.ck-editor-host .ck.ck-editor__main > .ck-editor__editable {
+  min-height: 34rem;
+  max-height: none;
+  font-family: inherit;
+  line-height: 1.6;
+}
+/* Fetched page images: keep them compact AND on their own line so they never
+   sit over the text. CKEditor renders extracted images as inline
+   (span.image-inline, inline-flex); a large inline image overlaps the
+   surrounding lines, so force images to block with vertical spacing. Width and
+   height are capped (aspect ratio preserved); users can still resize larger
+   with the image handles. */
+.ck-editor-host .ck-content .image,
+.ck-editor-host .ck-content .image-inline {
+  display: block;
+  max-width: 20rem;
+  margin: 0.75rem 0;
+  clear: both;
+}
+.ck-editor-host .ck-content img {
+  display: block;
+  max-width: 20rem;
+  max-height: 15rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+/* Keep the rounded corners clean where toolbar meets editable. */
+.ck-editor-host .ck.ck-toolbar { border-radius: var(--radius) var(--radius) 0 0; }
+.ck-editor-host .ck.ck-editor__main > .ck-editor__editable {
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .marketing-page *, .public-auth * {
     animation: none !important;

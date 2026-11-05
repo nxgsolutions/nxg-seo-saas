@@ -102,8 +102,16 @@ export const pageDiscoveryApi = {
     apiClient.get<Paged<DiscoveredPage>>(base(wid, did), {
       params: listParams(p, { type: filters.type, status: filters.status, indexable: filters.indexable }),
     }),
+  // First open fetches the live page server-side (SSRF-guarded, with retries) and
+  // caches it, which can take ~25s on a cold page — well past the default 15s GET
+  // timeout. Give it the long "audit/AI" budget so the first open doesn't abort
+  // (and trip the dev proxy) before the backend finishes and caches the result;
+  // every later open is served instantly from that cache.
   content: (wid: string, did: string, pageId: string, refresh = false) =>
-    apiClient.get<PageContent>(`${base(wid, did)}/pages/${pageId}/content`, { params: { refresh } }),
+    apiClient.get<PageContent>(`${base(wid, did)}/pages/${pageId}/content`, {
+      params: { refresh },
+      timeout: 120_000,
+    }),
   scoreContent: (wid: string, did: string, pageId: string, body: ScoreContentInput) =>
     apiClient.post<ScoreContentResult>(`${base(wid, did)}/pages/${pageId}/score`, body),
 }

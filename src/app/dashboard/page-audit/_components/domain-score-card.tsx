@@ -29,7 +29,7 @@ const DETAILS_HREF = "/dashboard/site-score"
  */
 export function DomainScoreCard() {
   const s = useSiteScoreScreen()
-  const { latest, running, job, jobError, error, canRefetch, nextRefetchAt } = s
+  const { latest, running, job, jobError, error, canRefetch, nextRefetchAt, lastCrawledAt } = s
   const b = latest ? band(latest.overall) : null
   const waitDays = daysUntil(nextRefetchAt)
 
@@ -89,9 +89,8 @@ export function DomainScoreCard() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Checking your pages one at a time to stay within your site&apos;s
-            limits — this can take a while on large sites. You can leave this
-            page; progress is saved.
+            Adding up the scores from your latest crawl — no re-fetching, so this
+            is quick. To refresh the underlying pages, run Page Discovery.
           </p>
         </CardContent>
       </Card>
@@ -143,18 +142,24 @@ export function DomainScoreCard() {
                 )}
                 <span className="text-xs text-muted-foreground">
                   Scored {latest.pages_scored.toLocaleString()} of{" "}
-                  {latest.pages_total.toLocaleString()} pages · updated{" "}
-                  <FormattedDate value={latest.created_at} />
+                  {latest.pages_total.toLocaleString()} pages
+                  {lastCrawledAt ? <> · crawled <FormattedDate value={lastCrawledAt} /></> : null}
                 </span>
               </div>
             </div>
           </Link>
           <div className="ml-auto flex items-center gap-3">
             <Link
+              href="/dashboard/page-discovery"
+              className="hidden items-center gap-1 text-sm font-medium text-primary hover:underline sm:inline-flex"
+            >
+              <ScanSearch className="size-3.5" /> Refresh pages
+            </Link>
+            <Link
               href={DETAILS_HREF}
               className="hidden text-sm font-medium text-primary hover:underline sm:inline"
             >
-              View full breakdown
+              View breakdown
             </Link>
             {RunButton}
           </div>
