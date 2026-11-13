@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   useContentScore,
   usePageContent,
   useRefetchPageContent,
+  useSavePageContent,
 } from "@/hooks/api/use-page-discovery"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { errorMessage } from "@/lib/api/client"
@@ -26,12 +28,15 @@ import {
   FileSearch,
   Loader2,
   RefreshCw,
+  Save,
   Target,
+  X,
 } from "lucide-react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import * as React from "react"
+import { toast } from "sonner"
 import { cleanEditorHtml } from "../_lib/editor-html"
 
 // CKEditor touches the DOM at import time, so load it client-only (ssr: false),
@@ -95,12 +100,20 @@ export default function ContentEditorScreen() {
   return <Editor key={pageId} pageId={pageId} wid={wid!} did={did!} />
 }
 
-function BackLink() {
+function BackLink({ onNavigate }: { onNavigate?: () => void }) {
+  const className =
+    "inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+  // In the editor, back navigation is intercepted so unsaved edits can be
+  // confirmed first; elsewhere it's a plain link.
+  if (onNavigate) {
+    return (
+      <button type="button" onClick={onNavigate} className={className}>
+        <ArrowLeft className="size-4" /> Page Discovery
+      </button>
+    )
+  }
   return (
-    <Link
-      href={BACK_HREF}
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-    >
+    <Link href={BACK_HREF} className={className}>
       <ArrowLeft className="size-4" /> Page Discovery
     </Link>
   )
@@ -115,8 +128,10 @@ function Editor({
   wid: string
   did: string
 }) {
+  const router = useRouter()
   const contentQuery = usePageContent(wid, did, pageId)
   const refetch = useRefetchPageContent(wid, did, pageId)
+  const save = useSavePageContent(wid, did, pageId)
   const content = contentQuery.data ?? null
 
   const [title, setTitle] = React.useState("")
@@ -128,6 +143,16 @@ function Editor({
   // an ever-changing value to CKEditor would reset the caret on every keystroke.
   const [editorSeed, setEditorSeed] = React.useState("")
   const [url, setUrl] = React.useState("")
+  // The last-persisted (or last-seeded) values, to detect unsaved changes.
+  const [savedSnapshot, setSavedSnapshot] = React.useState({
+    title: "",
+    meta: "",
+    bodyHtml: "",
+  })
+  // A navigation/action held back pending the "discard unsaved changes?" dialog.
+  const [pendingAction, setPendingAction] = React.useState<
+    "back" | "refetch" | null
+  >(null)
 
   // Seed the editable draft from fetched content once per fetch (setState during
   // render — the sanctioned "reset state when a prop changes" pattern). A live
@@ -135,7 +160,10 @@ function Editor({
   // cleanEditorHtml() strips presentational bold so the body doesn't open
   // entirely bold; both the live draft and the editor seed start from it so the
   // score reflects exactly what's shown.
-  const stamp = content && !content.error ? `${content.fetched_at ?? ""}|${content.url}` : null
+  const stamp =
+    content && !content.error
+      ? `${content.fetched_at ?? ""}|${content.url}`
+      : null
   const [seeded, setSeeded] = React.useState<string | null>(null)
   if (stamp && stamp !== seeded) {
     const cleaned = cleanEditorHtml(content!.body_html)
@@ -145,6 +173,12 @@ function Editor({
     setBodyHtml(cleaned)
     setEditorSeed(cleaned)
     setUrl(content!.url)
+    // Baseline for unsaved-changes detection = exactly what we just seeded.
+    setSavedSnapshot({
+      title: content!.title,
+      meta: content!.meta,
+      bodyHtml: cleaned,
+    })
   }
 
   const loadError =
@@ -181,6 +215,65 @@ function Editor({
   ]
   const initialLoading = contentQuery.isPending && !seeded
 
+  // Unsaved-changes detection: compare live fields with the last saved/seeded state.
+  const dirty =
+    Boolean(seeded) &&
+    (title !== savedSnapshot.title ||
+      meta !== savedSnapshot.meta ||
+      bodyHtml !== savedSnapshot.bodyHtml)
+  const saving = save.isPending
+
+  // Warn before leaving the tab/closing while there are unsaved edits.
+  React.useEffect(() => {
+    if (!dirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [dirty])
+
+  function handleSave() {
+    if (saving) return
+    const text = bodyHtml
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .trim()
+    if (!title.trim()) {
+      toast.error("Add a page title before saving.")
+      return
+    }
+    if (!text) {
+      toast.error("The content is empty — add some content before saving.")
+      return
+    }
+    save.mutate(
+      { title, meta, body_html: bodyHtml },
+      {
+        onSuccess: () => {
+          // Stay in the editor; the live score + checklist keep reflecting the content.
+          setSavedSnapshot({ title, meta, bodyHtml })
+          toast.success("Changes saved")
+        },
+        onError: (err) =>
+          toast.error(
+            errorMessage(err, "Could not save changes. Please try again."),
+          ),
+      },
+    )
+  }
+
+  // Run (or, when there are unsaved edits, confirm first) a back/re-fetch action.
+  function runAction(action: "back" | "refetch") {
+    if (action === "back") router.push(BACK_HREF)
+    else refetch.mutate()
+  }
+  function guard(action: "back" | "refetch") {
+    if (dirty) setPendingAction(action)
+    else runAction(action)
+  }
+
   return (
     // Desktop: a fixed-height dual-pane shell — the header stays put and each
     // column scrolls inside its own region, so the page itself never scrolls.
@@ -189,7 +282,7 @@ function Editor({
     <div className="space-y-5 lg:flex lg:h-[calc(100dvh-8rem)] lg:flex-col lg:gap-5 lg:space-y-0 lg:overflow-hidden">
       {/* Breadcrumb + header */}
       <div className="space-y-4 lg:shrink-0">
-        <BackLink />
+        <BackLink onNavigate={() => guard("back")} />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wide text-primary">
@@ -236,8 +329,8 @@ function Editor({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => refetch.mutate()}
-              disabled={refetch.isPending}
+              onClick={() => guard("refetch")}
+              disabled={refetch.isPending || saving}
             >
               {refetch.isPending ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -245,6 +338,28 @@ function Editor({
                 <RefreshCw className="size-4" />
               )}
               {cached ? "Refresh" : "Re-fetch"}
+            </Button>
+            {dirty && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => guard("back")}
+                disabled={saving}
+              >
+                <X className="size-4" /> Cancel
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!dirty || saving || initialLoading}
+            >
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Save className="size-4" />
+              )}
+              Save changes
             </Button>
           </div>
         </div>
@@ -254,7 +369,9 @@ function Editor({
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
             <AlertTriangle className="size-8 text-amber-500" />
-            <p className="max-w-md text-sm text-muted-foreground">{loadError}</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {loadError}
+            </p>
             <Button
               variant="outline"
               size="sm"
@@ -269,59 +386,55 @@ function Editor({
         <div className="grid items-start gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_23rem] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:overflow-hidden">
           {/* Editor column — its own independent scroll area on desktop */}
           <div className="scroll-smooth lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:[scrollbar-width:thin]">
-          <Card>
-            <CardContent className="space-y-5 pt-6">
-              {initialLoading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-11 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-96 w-full" />
-                </div>
-              ) : (
-                <>
-                  <Field
-                    label="Page title"
-                    hint={`${title.length} chars · aim 30–60`}
-                    hintTone={lenTone(title.length, 30, 60)}
-                  >
-                    <Input
-                      value={title}
-                      onValueChange={setTitle}
-                      placeholder="Page title"
-                      className="h-11 text-base"
-                      maxLength={300}
-                    />
-                  </Field>
-                  <Field
-                    label="Meta description"
-                    hint={`${meta.length} chars · aim 120–160`}
-                    hintTone={lenTone(meta.length, 120, 160)}
-                  >
-                    <textarea
-                      value={meta}
-                      onChange={(e) => setMeta(e.target.value)}
-                      rows={3}
-                      maxLength={400}
-                      placeholder="Meta description shown in search results"
-                      className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                    />
-                  </Field>
+            <Card>
+              <CardContent className="space-y-5 pt-6">
+                {initialLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-11 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-96 w-full" />
+                  </div>
+                ) : (
+                  <>
+                    <Field
+                      label="Page title"
+                      hint={`${title.length} chars · aim 30–60`}
+                      hintTone={lenTone(title.length, 30, 60)}
+                    >
+                      <Input
+                        value={title}
+                        onValueChange={setTitle}
+                        placeholder="Page title"
+                        className="h-11 text-base"
+                        maxLength={300}
+                      />
+                    </Field>
+                    <Field
+                      label="Meta description"
+                      hint={`${meta.length} chars · aim 120–160`}
+                      hintTone={lenTone(meta.length, 120, 160)}
+                    >
+                      <textarea
+                        value={meta}
+                        onChange={(e) => setMeta(e.target.value)}
+                        rows={3}
+                        maxLength={400}
+                        placeholder="Meta description shown in search results"
+                        className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                      />
+                    </Field>
 
-                  <Field label="Content" as="div">
-                    <RichTextEditor
-                      key={seeded ?? "unseeded"}
-                      initialData={editorSeed}
-                      onChange={setBodyHtml}
-                    />
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Edits here are a working draft for scoring — copy the HTML
-                      into your CMS when you&apos;re happy with the score.
-                    </p>
-                  </Field>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                    <Field label="Content" as="div">
+                      <RichTextEditor
+                        key={seeded ?? "unseeded"}
+                        initialData={editorSeed}
+                        onChange={setBodyHtml}
+                      />
+                    </Field>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Score sidebar — its own independent scroll area, so a long
@@ -412,6 +525,28 @@ function Editor({
           </div>
         </div>
       )}
+
+      {/* Discard-unsaved-changes guard, shared by Back/Cancel and Re-fetch. */}
+      <ConfirmDialog
+        open={pendingAction !== null}
+        onOpenChange={(o) => {
+          if (!o) setPendingAction(null)
+        }}
+        title="Discard unsaved changes?"
+        description={
+          pendingAction === "refetch"
+            ? "Re-fetching the live page will replace your unsaved edits. Your last saved version is safe."
+            : "You have unsaved edits on this page. If you leave now, they'll be lost."
+        }
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
+        tone="destructive"
+        onConfirm={() => {
+          const action = pendingAction
+          setPendingAction(null)
+          if (action) runAction(action)
+        }}
+      />
     </div>
   )
 }
@@ -461,4 +596,3 @@ function Field({
     </Wrapper>
   )
 }
-

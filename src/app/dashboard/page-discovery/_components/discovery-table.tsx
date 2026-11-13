@@ -54,8 +54,8 @@ export function DiscoveryTable({ wid, did, running, total, className }: {
     try {
       const all = await fetchAllPages((p, size) => pageDiscoveryApi.list(wid, did, { page: p, pageSize: size, q: debouncedQ }, filters))
       downloadCsv("discovered-pages",
-        ["#", "URL", "Title", "Type", "Status", "Indexable", "Words", "Score", "Last modified"],
-        all.map((r, i) => [i + 1, r.url, r.title, r.page_type, r.http_status ?? "", r.indexable == null ? "" : r.indexable ? "Yes" : "No", r.word_count ?? "", r.latest_audit_score ?? "", r.sitemap_lastmod ?? ""]))
+        ["#", "URL", "Title", "Type", "Status", "Indexable", "Words", "Score", "Edited score", "Last modified"],
+        all.map((r, i) => [i + 1, r.url, r.title, r.page_type, r.http_status ?? "", r.indexable == null ? "" : r.indexable ? "Yes" : "No", r.word_count ?? "", r.latest_audit_score ?? "", r.content_score ?? "", r.sitemap_lastmod ?? ""]))
     } catch (err) {
       toast.error(errorMessage(err, "Could not export."))
     } finally { setExporting(false) }
@@ -129,6 +129,17 @@ function Row({ row: r, sn }: {
           <ExternalLink className="size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
         </a>
         <p className="truncate text-xs text-muted-foreground">{r.url}</p>
+        {r.content_score != null && (
+          <span
+            title={`SEO score of your saved content edits: ${r.content_score}/100`}
+            className={cn(
+              "mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium tabular-nums",
+              scoreColor(r.content_score),
+            )}
+          >
+            <PenLine className="size-3" /> Edited · {r.content_score}
+          </span>
+        )}
       </td>
       <td className="px-3 py-2.5">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-xs">

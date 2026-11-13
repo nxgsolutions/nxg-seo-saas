@@ -6,6 +6,7 @@ import {
   pageDiscoveryApi,
   type DiscoveryRun,
   type PageFilters,
+  type SavePageContentInput,
   type ScoreContentInput,
 } from "@/lib/api/page-discovery"
 import type { ListParams } from "@/lib/api/pagination"
@@ -85,6 +86,21 @@ export function useRefetchPageContent(wid: string | null, did: string | null, pa
     mutationFn: () => pageDiscoveryApi.content(wid!, did!, pageId!, true),
     onSuccess: (data) =>
       qc.setQueryData([...queryKeys.pageDiscovery(wid ?? "", did ?? ""), "content", pageId], data),
+  })
+}
+
+/** Save the user's edits for a page. Persisted separately from the fetched
+ * cache (a later Re-fetch never clobbers them). On success it refreshes the
+ * discovery list + summary (title / word count may have changed) but leaves the
+ * open editor's "content" query alone, so the editor stays put (no re-seed). */
+export function useSavePageContent(wid: string | null, did: string | null, pageId: string | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: SavePageContentInput) => pageDiscoveryApi.save(wid!, did!, pageId!, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...queryKeys.pageDiscovery(wid ?? "", did ?? ""), "list"] })
+      qc.invalidateQueries({ queryKey: [...queryKeys.pageDiscovery(wid ?? "", did ?? ""), "summary"] })
+    },
   })
 }
 

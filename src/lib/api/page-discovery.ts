@@ -38,6 +38,10 @@ export interface DiscoveredPage {
   latest_audit_score: number | null
   word_count: number | null
   has_content: boolean
+  /** SEO score of the saved edited content (null = never edited/scored). */
+  content_score: number | null
+  /** True when this page has saved editor edits. */
+  edited: boolean
 }
 
 export interface PageFilters {
@@ -55,8 +59,19 @@ export interface PageContent {
   http_status: number | null
   url: string
   cached: boolean
+  /** True when this content is a saved user edit, not the fetched version. */
+  edited?: boolean
+  /** SEO score of the saved content (returned on save; null otherwise). */
+  score?: number | null
   fetched_at: string | null
   error: string | null
+}
+
+/** The fields a user can save/update for a page's content. */
+export interface SavePageContentInput {
+  title: string
+  meta: string
+  body_html: string
 }
 
 export type CheckStatus = "pass" | "warn" | "fail"
@@ -114,4 +129,10 @@ export const pageDiscoveryApi = {
     }),
   scoreContent: (wid: string, did: string, pageId: string, body: ScoreContentInput) =>
     apiClient.post<ScoreContentResult>(`${base(wid, did)}/pages/${pageId}/score`, body),
+  // Persist the user's edits. Stored separately from the fetched cache, so a later
+  // Re-fetch never clobbers them. Long timeout to match the content endpoint.
+  save: (wid: string, did: string, pageId: string, body: SavePageContentInput) =>
+    apiClient.patch<PageContent>(`${base(wid, did)}/pages/${pageId}/content`, body, {
+      timeout: 120_000,
+    }),
 }

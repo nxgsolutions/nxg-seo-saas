@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Columns2,
   Download,
+  Loader2,
   Maximize2,
   Plus,
   RefreshCw,
@@ -140,7 +141,8 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 export default function CompetitiveStrategyScreen() {
   // Market (country) the comparison runs in — default India. Drives the queries.
   const [market, setMarket] = React.useState<AnalyticsCountry>("in")
-  const { ready, analytics, history, strategy, loading, error } = useCompetitiveStrategyData(market)
+  const { ready, analytics, history, strategy, loading, error, refreshAnalytics, refreshing } =
+    useCompetitiveStrategyData(market)
   const [metric, setMetric] = React.useState<MetricId>("traffic")
   const [view, setView] = React.useState<ViewId>("market")
   // Which domains are in the comparison (null = default top set). The compare
@@ -325,6 +327,7 @@ export default function CompetitiveStrategyScreen() {
               placeholder="Search competitors or enter a domain"
               actionLabel="Add"
               actionIcon={<Plus className="size-4" />}
+              actionVariant="default"
             />
 
             <DropdownMenu>
@@ -351,9 +354,6 @@ export default function CompetitiveStrategyScreen() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button size="default" render={<Link href="/dashboard/competitors" />}>
-              <Search /> Compare
-            </Button>
           </div>
 
           {effectiveSelected.length > 0 && (
@@ -434,9 +434,6 @@ export default function CompetitiveStrategyScreen() {
               </div>
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="default" render={<Link href="/dashboard/competitors/keywords" />}>
-            <RefreshCw /> Compare
-          </Button>
         </div>
       </div>
 
@@ -567,15 +564,31 @@ export default function CompetitiveStrategyScreen() {
                       ))}
                     </div>
                   </>
-                ) : (
+                ) : !field ? (
                   <div className="flex h-[20rem] items-center justify-center rounded-xl border border-dashed border-border px-6 text-center text-sm text-muted-foreground">
-                    {!field
-                      ? "Search volume isn’t tracked per competitor yet — switch to Estimated Traffic or Ranking Keywords."
-                      : dates.length === 1
-                        ? "Only one snapshot in this date range — widen it to plot a trend."
-                        : allDates.length >= 2
-                          ? "No snapshots in the selected date range — widen the range to see the trend."
-                          : "Only one snapshot stored so far. Refresh competitor analytics on another day to build the trend over time."}
+                    Search volume isn’t tracked per competitor yet — switch to Estimated Traffic or Ranking Keywords.
+                  </div>
+                ) : allDates.length >= 2 ? (
+                  <div className="flex h-[20rem] items-center justify-center rounded-xl border border-dashed border-border px-6 text-center text-sm text-muted-foreground">
+                    No data in the selected date range — widen the range to see the trend.
+                  </div>
+                ) : (
+                  // No stored history yet: one fetch pulls the last 12 months.
+                  <div className="flex h-[20rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border px-6 text-center">
+                    <p className="text-sm font-medium">No trend data yet for this market.</p>
+                    <p className="max-w-sm text-sm text-muted-foreground">
+                      Fetch the last 12 months of competitor estimated traffic and
+                      ranking-keyword history. One fetch builds the whole trend.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => refreshAnalytics(allDates.length > 0)}
+                      disabled={refreshing || !ready}
+                    >
+                      {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                      {refreshing ? "Fetching 12-month history…" : "Fetch metrics data"}
+                    </Button>
+                    {error && <p className="text-xs text-destructive">{error}</p>}
                   </div>
                 )}
               </div>

@@ -7,11 +7,18 @@
  *  - strategy: our SERP footprint — common vs gap keywords per competitor
  *    (Gap & Overlap view).
  *
- * Both are DB-only reads (no paid DataForSEO call). New analytics are fetched
- * from the Competitor Keywords page via its "Refresh" action; this page only
- * visualizes what is already stored.
+ * The three queries are DB-only reads (no paid DataForSEO call). `refreshAnalytics`
+ * is the one paid action: it fetches stale/missing whole-site metrics AND the
+ * 12-month history from DataForSEO, stores them, then refetches both the
+ * analytics and the trend so the graph fills in without a page reload.
  */
-import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
+import * as React from "react"
 
 import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { errorMessage } from "@/lib/api/client"
@@ -24,6 +31,7 @@ export function useCompetitiveStrategyData(country: AnalyticsCountry = "in") {
   const ready = Boolean(workspaceId && domainId)
   const wid = workspaceId ?? ""
   const did = domainId ?? ""
+  const qc = useQueryClient()
 
   const analytics = useQuery({
     queryKey: [...queryKeys.competitorAnalytics(wid, did), country],
@@ -45,19 +53,42 @@ export function useCompetitiveStrategyData(country: AnalyticsCountry = "in") {
     enabled: ready,
   })
 
+  // Paid (DataForSEO Labs): fetch whole-site metrics + 12-month history, then
+  // refetch the analytics and trend so the charts fill in. `force` re-fetches
+  // domains whose stored data is still fresh.
+  const refresh = useMutation({
+    mutationFn: (force: boolean) =>
+      opportunityApi.refreshCompetitorAnalytics(wid, did, { country, force }),
+    onSuccess: () => {
+      // Prefix-match invalidation covers the country-suffixed query keys.
+      qc.invalidateQueries({ queryKey: queryKeys.competitorAnalytics(wid, did) })
+      qc.invalidateQueries({ queryKey: queryKeys.competitorAnalyticsHistory(wid, did) })
+    },
+  })
+  const refreshAnalytics = React.useCallback(
+    (force: boolean) => {
+      if (ready) refresh.mutate(force)
+    },
+    [ready, refresh],
+  )
+
   return {
     ready,
     analytics: analytics.data ?? null,
     history: history.data ?? null,
     strategy: strategy.data ?? null,
     loading: analytics.isLoading || history.isLoading || strategy.isLoading,
+    refreshAnalytics,
+    refreshing: refresh.isPending,
     error:
-      analytics.isError
-        ? errorMessage(analytics.error, "Could not load competitor analytics.")
-        : history.isError
-          ? errorMessage(history.error, "Could not load the competitor trend.")
-          : strategy.isError
-            ? errorMessage(strategy.error, "Could not load the keyword gap data.")
-            : null,
+      refresh.isError
+        ? errorMessage(refresh.error, "Could not fetch competitor metrics.")
+        : analytics.isError
+          ? errorMessage(analytics.error, "Could not load competitor analytics.")
+          : history.isError
+            ? errorMessage(history.error, "Could not load the competitor trend.")
+            : strategy.isError
+              ? errorMessage(strategy.error, "Could not load the keyword gap data.")
+              : null,
   }
 }

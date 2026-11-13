@@ -41,7 +41,8 @@ export function normalizeDomain(raw: string): string {
  */
 export function CompetitorCombobox({
   options, onPick, placeholder = "Type or pick a competitor, e.g. drishtiias.com",
-  actionLabel, actionIcon, disabled = false, busy = false, className, clearOnPick = false, value,
+  actionLabel, actionIcon, actionVariant = "outline", disabled = false, busy = false,
+  className, clearOnPick = false, value,
 }: {
   options: CompetitorOption[]
   onPick: (domain: string) => void
@@ -50,6 +51,8 @@ export function CompetitorCombobox({
    * Enter on a typed domain already submits. */
   actionLabel?: string
   actionIcon?: React.ReactNode
+  /** Submit button style — "default" (primary) or "outline" (default). */
+  actionVariant?: "default" | "outline"
   disabled?: boolean
   busy?: boolean
   className?: string
@@ -181,7 +184,7 @@ export function CompetitorCombobox({
         </Autocomplete.Portal>
       </Autocomplete.Root>
       {actionLabel && (
-        <Button type="submit" variant="outline" className="shrink-0" disabled={disabled || busy || !text.trim()}>
+        <Button type="submit" variant={actionVariant} className="shrink-0" disabled={disabled || busy || !text.trim()}>
           {busy ? <Loader2 className="size-4 animate-spin" /> : actionIcon} {actionLabel}
         </Button>
       )}
