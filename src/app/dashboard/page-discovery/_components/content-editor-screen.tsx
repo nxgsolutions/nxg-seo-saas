@@ -27,7 +27,6 @@ import {
   ExternalLink,
   FileSearch,
   Loader2,
-  RefreshCw,
   Save,
   Target,
   X,
@@ -149,10 +148,8 @@ function Editor({
     meta: "",
     bodyHtml: "",
   })
-  // A navigation/action held back pending the "discard unsaved changes?" dialog.
-  const [pendingAction, setPendingAction] = React.useState<
-    "back" | "refetch" | null
-  >(null)
+  // Back navigation held pending the "discard unsaved changes?" dialog.
+  const [confirmLeave, setConfirmLeave] = React.useState(false)
 
   // Seed the editable draft from fetched content once per fetch (setState during
   // render — the sanctioned "reset state when a prop changes" pattern). A live
@@ -186,7 +183,6 @@ function Editor({
     (contentQuery.isError
       ? errorMessage(contentQuery.error, "Could not load this page's content.")
       : null)
-  const cached = content?.cached ?? false
 
   // Debounced snapshot drives the score: the keyword rides the same debounce as
   // every other field, so nothing fires on each keystroke, and the previous
@@ -264,14 +260,10 @@ function Editor({
     )
   }
 
-  // Run (or, when there are unsaved edits, confirm first) a back/re-fetch action.
-  function runAction(action: "back" | "refetch") {
-    if (action === "back") router.push(BACK_HREF)
-    else refetch.mutate()
-  }
-  function guard(action: "back" | "refetch") {
-    if (dirty) setPendingAction(action)
-    else runAction(action)
+  // Leaving the editor; confirm first when there are unsaved edits.
+  function handleLeave() {
+    if (dirty) setConfirmLeave(true)
+    else router.push(BACK_HREF)
   }
 
   return (
@@ -282,7 +274,7 @@ function Editor({
     <div className="space-y-5 lg:flex lg:h-[calc(100dvh-8rem)] lg:flex-col lg:gap-5 lg:space-y-0 lg:overflow-hidden">
       {/* Breadcrumb + header */}
       <div className="space-y-4 lg:shrink-0">
-        <BackLink onNavigate={() => guard("back")} />
+        <BackLink onNavigate={handleLeave} />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wide text-primary">
@@ -308,42 +300,16 @@ function Editor({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {url && (
-              <Button
-                variant="outline"
-                size="sm"
-                render={
-                  <Link
-                    href={`/dashboard/page-audit?url=${encodeURIComponent(url)}`}
-                  />
-                }
-              >
-                <FileSearch className="size-4" /> Full audit
-              </Button>
-            )}
             <CopyButton
               text={bodyHtml}
               label="Copy HTML"
               className="border border-border"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => guard("refetch")}
-              disabled={refetch.isPending || saving}
-            >
-              {refetch.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <RefreshCw className="size-4" />
-              )}
-              {cached ? "Refresh" : "Re-fetch"}
-            </Button>
             {dirty && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => guard("back")}
+                onClick={handleLeave}
                 disabled={saving}
               >
                 <X className="size-4" /> Cancel
@@ -526,25 +492,20 @@ function Editor({
         </div>
       )}
 
-      {/* Discard-unsaved-changes guard, shared by Back/Cancel and Re-fetch. */}
+      {/* Discard-unsaved-changes guard for leaving via Back/Cancel. */}
       <ConfirmDialog
-        open={pendingAction !== null}
+        open={confirmLeave}
         onOpenChange={(o) => {
-          if (!o) setPendingAction(null)
+          if (!o) setConfirmLeave(false)
         }}
         title="Discard unsaved changes?"
-        description={
-          pendingAction === "refetch"
-            ? "Re-fetching the live page will replace your unsaved edits. Your last saved version is safe."
-            : "You have unsaved edits on this page. If you leave now, they'll be lost."
-        }
+        description="You have unsaved edits on this page. If you leave now, they'll be lost."
         confirmLabel="Discard changes"
         cancelLabel="Keep editing"
         tone="destructive"
         onConfirm={() => {
-          const action = pendingAction
-          setPendingAction(null)
-          if (action) runAction(action)
+          setConfirmLeave(false)
+          router.push(BACK_HREF)
         }}
       />
     </div>

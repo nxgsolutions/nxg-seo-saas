@@ -24,6 +24,7 @@ import {
   Download,
   Loader2,
   Maximize2,
+  Minimize2,
   Plus,
   RefreshCw,
   Search,
@@ -35,12 +36,15 @@ import {
 import type { DateRange } from "react-day-picker"
 
 import { PageHeader } from "@/components/dashboard/page-header"
+import { Favicon } from "@/app/dashboard/competitors/_components/favicon"
+import { useActiveDomain } from "@/hooks/dashboard"
 import {
   CompetitorCombobox,
   type CompetitorOption,
 } from "@/components/dashboard/competitor-combobox"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   DropdownMenu,
@@ -48,7 +52,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { AnalyticsCountry } from "@/lib/api/opportunity"
 import {
@@ -65,15 +73,21 @@ import { CompetitorGapOverlap } from "./competitor-gap-overlap"
 
 // Series colors — line + donut share one map so a domain keeps its color.
 const PALETTE = [
-  "var(--chart-1)", "var(--chart-3)", "#7c5cff", "var(--chart-4)",
-  "var(--chart-5)", "var(--chart-2)", "#e34948", "#008380",
+  "var(--chart-1)",
+  "var(--chart-3)",
+  "#7c5cff",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-2)",
+  "#e34948",
+  "#008380",
 ]
 const MAX_LINES = 6
 
 const METRICS = [
   { id: "traffic", label: "Estimated Traffic", field: "organic_traffic" },
   { id: "keywords", label: "Ranking Keywords", field: "ranking_keywords" },
-  { id: "volume", label: "Search Volume", field: null },
+  { id: "volume", label: "Search Volume", field: "search_volume" },
 ] as const
 type MetricId = (typeof METRICS)[number]["id"]
 
@@ -85,10 +99,41 @@ type ViewId = (typeof VIEWS)[number]["id"]
 
 // Markets the user can compare in (default India). Each drives the `country`
 // param of the analytics + trend queries.
-const MARKET_OPTIONS: { code: AnalyticsCountry; flag: string; label: string }[] = [
+const MARKET_OPTIONS: {
+  code: AnalyticsCountry
+  flag: string
+  label: string
+}[] = [
   { code: "in", flag: "🇮🇳", label: "India" },
   { code: "us", flag: "🇺🇸", label: "United States" },
 ]
+
+/** Inline SVG flag — flag emoji don't render on Windows, so draw them. */
+function MarketFlag({ code }: { code: AnalyticsCountry }) {
+  const props = {
+    width: 18, height: 12, "aria-hidden": true,
+    className: "shrink-0 rounded-[2px] ring-1 ring-black/10",
+  } as const
+  if (code === "in") {
+    return (
+      <svg viewBox="0 0 24 16" {...props}>
+        <rect width="24" height="16" fill="#fff" />
+        <rect width="24" height="5.333" fill="#FF9933" />
+        <rect y="10.667" width="24" height="5.333" fill="#138808" />
+        <circle cx="12" cy="8" r="1.9" fill="none" stroke="#000080" strokeWidth="0.5" />
+      </svg>
+    )
+  }
+  return (
+    <svg viewBox="0 0 26 16" {...props}>
+      <rect width="26" height="16" fill="#B22234" />
+      {[1, 3, 5, 7, 9, 11].map((i) => (
+        <rect key={i} y={(i * 16) / 13} width="26" height={16 / 13} fill="#fff" />
+      ))}
+      <rect width="11" height={(16 * 7) / 13} fill="#3C3B6E" />
+    </svg>
+  )
+}
 
 // Number of competitors shown in the compare bar by default (the strongest by
 // traffic); the user can remove any or add their own with the Add field.
@@ -96,7 +141,9 @@ const DEFAULT_COMPARE = 4
 
 /** Normalize a typed domain/URL to a bare host (drops scheme, www, path). */
 function normHost(value: string): string {
-  return value.trim().toLowerCase()
+  return value
+    .trim()
+    .toLowerCase()
     .replace(/^https?:\/\//, "")
     .replace(/^www\./, "")
     .replace(/\/.*$/, "")
@@ -122,16 +169,28 @@ function toISODate(d: Date): string {
 }
 /** Compact traffic figure for filter chips (12.3M / 840K / 500). */
 function fmtTraffic(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
+  if (n >= 1_000_000)
+    return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`
   return `${n}`
 }
 
-function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+function FilterChip({
+  label,
+  onClear,
+}: {
+  label: string
+  onClear: () => void
+}) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
       {label}
-      <button type="button" onClick={onClear} aria-label={`Clear ${label}`} className="hover:text-foreground">
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Clear ${label}`}
+        className="hover:text-foreground"
+      >
         <X className="size-3" />
       </button>
     </span>
@@ -141,8 +200,19 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 export default function CompetitiveStrategyScreen() {
   // Market (country) the comparison runs in — default India. Drives the queries.
   const [market, setMarket] = React.useState<AnalyticsCountry>("in")
-  const { ready, analytics, history, strategy, loading, error, refreshAnalytics, refreshing } =
-    useCompetitiveStrategyData(market)
+  const {
+    ready,
+    analytics,
+    history,
+    strategy,
+    loading,
+    error,
+    refreshAnalytics,
+    refreshing,
+  } = useCompetitiveStrategyData(market)
+  // Primary website comes from the currently selected project (top bar), never
+  // hardcoded — it is always pinned first in the comparison.
+  const activeDomain = useActiveDomain()
   const [metric, setMetric] = React.useState<MetricId>("traffic")
   const [view, setView] = React.useState<ViewId>("market")
   // Which domains are in the comparison (null = default top set). The compare
@@ -151,13 +221,27 @@ export default function CompetitiveStrategyScreen() {
   // Filters (narrow what the charts show). Reset clears all of these.
   const [search, setSearch] = React.useState("")
   const [minTraffic, setMinTraffic] = React.useState(0)
-  const [excludeYou, setExcludeYou] = React.useState(false)
   const [range, setRange] = React.useState<DateRange | undefined>(undefined)
+  // Expand the chart + donut area to fill the screen (in-app overlay).
+  const [expanded, setExpanded] = React.useState(false)
+  React.useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [expanded])
 
   const header = (
     <PageHeader
-      title={<> <Swords className="size-5 text-primary" /> Competitive Strategy </>}
-      description="Compare domains side by side — estimated traffic, ranking keywords and market share over time."
+      title={
+        <>
+          {" "}
+          <Swords className="size-5 text-primary" /> Competitive Strategy{" "}
+        </>
+      }
+      description="Compare domains side by side — estimated traffic, ranking keywords."
       backHref="/dashboard/competitors"
       backLabel="Competitor Analysis"
     />
@@ -167,9 +251,11 @@ export default function CompetitiveStrategyScreen() {
     return (
       <div className="space-y-5">
         {header}
-        <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Select a website from the top bar to compare its competitors.
-        </CardContent></Card>
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            Select a website from the top bar to compare its competitors.
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -178,16 +264,18 @@ export default function CompetitiveStrategyScreen() {
     return (
       <div className="space-y-5">
         {header}
-        <Card><CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-6 w-64" />
-            <Skeleton className="h-8 w-56" />
-          </div>
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <Skeleton className="h-[20rem] w-full" />
-            <Skeleton className="h-[20rem] w-full" />
-          </div>
-        </CardContent></Card>
+        <Card>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-6 w-64" />
+              <Skeleton className="h-8 w-56" />
+            </div>
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+              <Skeleton className="h-[20rem] w-full" />
+              <Skeleton className="h-[20rem] w-full" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -196,7 +284,11 @@ export default function CompetitiveStrategyScreen() {
     return (
       <div className="space-y-5">
         {header}
-        <Card><CardContent className="py-12 text-center text-sm text-destructive">{error}</CardContent></Card>
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-destructive">
+            {error}
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -207,14 +299,20 @@ export default function CompetitiveStrategyScreen() {
     return (
       <div className="space-y-5">
         {header}
-        <Card><CardContent className="space-y-3 py-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            No competitor data stored yet for this website.
-          </p>
-          <Button variant="outline" size="sm" render={<Link href="/dashboard/competitors/keywords" />}>
-            <Users /> Open Competitor Keywords to fetch metrics
-          </Button>
-        </CardContent></Card>
+        <Card>
+          <CardContent className="space-y-3 py-12 text-center">
+            <p className="text-sm text-muted-foreground">
+              No competitor data stored yet for this website.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href="/dashboard/competitors/keywords" />}
+            >
+              <Users /> Open Competitor Keywords to fetch metrics
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -225,14 +323,26 @@ export default function CompetitiveStrategyScreen() {
     return PALETTE[(i >= 0 ? i : fallback) % PALETTE.length]
   }
 
-  // Comparison set: the chips drive the charts. Default = strongest few domains.
-  const effectiveSelected = selected ?? rows.slice(0, DEFAULT_COMPARE).map((r) => r.domain)
+  const primaryHost = normHost(activeDomain?.domain ?? "")
+
+  // Comparison set: primary is ALWAYS present and first; competitors follow.
+  // Default competitor set = strongest few domains.
+  const chosen = selected ?? rows.slice(0, DEFAULT_COMPARE).map((r) => r.domain)
+  const effectiveSelected = primaryHost
+    ? [primaryHost, ...chosen.filter((d) => d !== primaryHost)]
+    : chosen
   const selectedSet = new Set(effectiveSelected)
+  const competitorDomains = effectiveSelected.filter((d) => d !== primaryHost)
   const pickDomain = (d: string) => {
     const h = normHost(d)
-    if (h && !effectiveSelected.includes(h)) setSelected([...effectiveSelected, h])
+    if (h && !effectiveSelected.includes(h))
+      setSelected([...effectiveSelected, h])
   }
-  const removeDomain = (d: string) => setSelected(effectiveSelected.filter((x) => x !== d))
+  // Primary can never be removed; only competitors are removable.
+  const removeDomain = (d: string) => {
+    if (d === primaryHost) return
+    setSelected(effectiveSelected.filter((x) => x !== d))
+  }
 
   // Options for the picker: your competitors / stored domains not already chosen.
   const knownDomains = new Map<string, CompetitorOption>()
@@ -241,35 +351,48 @@ export default function CompetitiveStrategyScreen() {
       domain: r.domain,
       tag: r.is_you ? "you" : "competitor",
       hint: `${r.traffic_share.toFixed(1)}%`,
-    }))
+    }),
+  )
   ;(strategy?.competitors ?? []).forEach((c) => {
-    if (!knownDomains.has(c.domain)) knownDomains.set(c.domain, { domain: c.domain, tag: "competitor" })
+    if (!knownDomains.has(c.domain))
+      knownDomains.set(c.domain, { domain: c.domain, tag: "competitor" })
   })
-  const addOptions = [...knownDomains.values()].filter((o) => !selectedSet.has(o.domain))
+  const addOptions = [...knownDomains.values()].filter(
+    (o) => !selectedSet.has(o.domain),
+  )
 
   // --- Filters narrow which competitors + dates appear in the charts ---
   const q = search.trim().toLowerCase()
   const passes = (domain: string) => {
+    if (domain === primaryHost) return true // primary is always shown
     const row = rows.find((r) => r.domain === domain)
     if (q && !domain.toLowerCase().includes(q)) return false
     if (minTraffic > 0 && (row?.organic_traffic ?? 0) < minTraffic) return false
-    if (excludeYou && row?.is_you) return false
     return true
   }
   const activeFilterCount =
-    (q ? 1 : 0) + (minTraffic > 0 ? 1 : 0) + (excludeYou ? 1 : 0) + (range?.from ? 1 : 0)
+    (q ? 1 : 0) + (minTraffic > 0 ? 1 : 0) + (range?.from ? 1 : 0)
   const resetFilters = () => {
-    setSearch(""); setMinTraffic(0); setExcludeYou(false); setRange(undefined)
+    setSearch("")
+    setMinTraffic(0)
+    setRange(undefined)
   }
 
-  // Donut: traffic share among the visible (selected + passing filters) domains.
-  const visibleRows = rows.filter((r) => selectedSet.has(r.domain) && passes(r.domain))
-  const totalTraffic = visibleRows.reduce((s, r) => s + r.organic_traffic, 0)
-  const share: ShareSlice[] = visibleRows.map((r) => ({
-    name: r.domain,
-    value: totalTraffic ? (r.organic_traffic / totalTraffic) * 100 : 0,
-    color: colorFor(r.domain),
-  }))
+  // Active metric + the date window — shared by BOTH the line chart and the donut
+  // so they always reflect the same tab, range and selection.
+  const field = METRICS.find((m) => m.id === metric)!.field
+  const shareTitle =
+    metric === "traffic"
+      ? "Traffic Share"
+      : metric === "keywords"
+        ? "Keyword Share"
+        : "Volume Share"
+  const allDates = history?.dates ?? []
+  const fromISO = range?.from ? toISODate(range.from) : null
+  const toISO = range?.from ? toISODate(range.to ?? range.from) : null
+  const dates = fromISO
+    ? allDates.filter((d) => d >= fromISO && d <= toISO!)
+    : allDates
 
   // Trend: one line per visible competitor, pivoted to one row/date.
   const seriesDomains = (history?.competitors ?? [])
@@ -280,25 +403,63 @@ export default function CompetitiveStrategyScreen() {
     label: c.domain,
     color: colorFor(c.domain, i),
   }))
-  const field = METRICS.find((m) => m.id === metric)!.field
+  const trendRows: TrafficRow[] = dates.map((date) => {
+    const row: TrafficRow = { month: fmtMonth(date) }
+    seriesDomains.forEach((c, i) => {
+      const pt = c.points.find((p) => p.captured_on === date)
+      row[`d${i}`] = (pt ? pt[field] : null) as number
+    })
+    return row
+  })
+  // True only when the ACTIVE metric has values to plot for the selected domains.
+  const hasSeriesData = seriesDomains.some((c) =>
+    c.points.some((p) => p[field] != null),
+  )
+  // The donut's reference month = the month in range where the MOST selected
+  // domains have a value for the ACTIVE metric (latest on a tie). A trailing
+  // month often has data for only one domain (search volume lags, runs differ),
+  // which would make the share reflect just that domain — this picks the most
+  // complete recent month so the donut shows ALL competitors.
+  const valueAt = (c: (typeof seriesDomains)[number], d: string) => {
+    const pt = c.points.find((p) => p.captured_on === d)
+    return pt != null ? pt[field] : null
+  }
+  let currentMonth: string | null = null
+  let bestCount = 0
+  for (const d of dates) {
+    const count = seriesDomains.reduce(
+      (n, c) => n + (valueAt(c, d) != null ? 1 : 0),
+      0,
+    )
+    if (count > 0 && count >= bestCount) {
+      bestCount = count
+      currentMonth = d
+    }
+  }
 
-  // Date-range filter over the stored snapshot dates.
-  const allDates = history?.dates ?? []
-  const fromISO = range?.from ? toISODate(range.from) : null
-  const toISO = range?.from ? toISODate(range.to ?? range.from) : null
-  const dates = fromISO ? allDates.filter((d) => d >= fromISO && d <= toISO!) : allDates
-  const trendRows: TrafficRow[] = field
-    ? dates.map((date) => {
-        const row: TrafficRow = { month: fmtMonth(date) }
-        seriesDomains.forEach((c, i) => {
-          const pt = c.points.find((p) => p.captured_on === date)
-          row[`d${i}`] = pt ? pt[field] : (null as unknown as number)
-        })
-        return row
-      })
-    : []
+  // Donut: share of the ACTIVE metric at the current month, among the same
+  // domains plotted above. Value / total of selected domains × 100.
+  const metricAt = (domain: string): number => {
+    const c = seriesDomains.find((s) => s.domain === domain)
+    const pt = currentMonth
+      ? c?.points.find((p) => p.captured_on === currentMonth)
+      : undefined
+    return (pt?.[field] as number | null) ?? 0
+  }
+  const shareTotal = seriesDomains.reduce((s, c) => s + metricAt(c.domain), 0)
+  const share: ShareSlice[] = seriesDomains
+    .map((c) => ({
+      name: c.domain,
+      value: shareTotal ? (metricAt(c.domain) / shareTotal) * 100 : 0,
+      color: colorFor(c.domain),
+    }))
+    .filter((s) => s.value > 0)
 
-  const latestDate = dates.at(-1) ?? allDates.at(-1) ?? analytics?.fetched_at?.slice(0, 10) ?? null
+  const latestDate =
+    currentMonth ??
+    allDates.at(-1) ??
+    analytics?.fetched_at?.slice(0, 10) ??
+    null
   const summaryMonth = latestDate ? fmtMonthYear(latestDate) : "latest snapshot"
   const defaultSpan = allDates.length
     ? `${fmtMonthYear(allDates[0])} – ${fmtMonthYear(allDates[allDates.length - 1])}`
@@ -306,10 +467,33 @@ export default function CompetitiveStrategyScreen() {
   const rangeLabel = range?.from
     ? `${fmtRangeDate(range.from)} – ${fmtRangeDate(range.to ?? range.from)}`
     : defaultSpan
-  const currentMarket = MARKET_OPTIONS.find((m) => m.code === market) ?? MARKET_OPTIONS[0]
-  const enoughHistory = dates.length >= 2 && Boolean(field)
-  const calendarMonth = range?.from ?? (allDates.length ? new Date(allDates[allDates.length - 1] + "T00:00:00") : undefined)
+  const currentMarket =
+    MARKET_OPTIONS.find((m) => m.code === market) ?? MARKET_OPTIONS[0]
+  const enoughHistory = dates.length >= 2 && hasSeriesData
+  const calendarMonth =
+    range?.from ??
+    (allDates.length
+      ? new Date(allDates[allDates.length - 1] + "T00:00:00")
+      : undefined)
 
+  // Export the active tab's series as CSV (one column per domain, one row/month).
+  const exportCsv = () => {
+    if (!trendRows.length || !series.length) return
+    const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
+    const header = ["Month", ...series.map((s) => s.label)]
+    const body = trendRows.map((r) =>
+      [r.month, ...series.map((s) => r[s.key] ?? "")].map(esc).join(","),
+    )
+    const csv = [header.map(esc).join(","), ...body].join("\n")
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+    )
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `competitive-strategy-${metric}-${market}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
   return (
     <div className="space-y-5">
       {header}
@@ -321,13 +505,11 @@ export default function CompetitiveStrategyScreen() {
           <div className="flex flex-wrap items-center gap-3">
             <CompetitorCombobox
               className="min-w-[16rem] flex-1"
+              formId="add-competitor"
               options={addOptions}
               onPick={pickDomain}
               clearOnPick
               placeholder="Search competitors or enter a domain"
-              actionLabel="Add"
-              actionIcon={<Plus className="size-4" />}
-              actionVariant="default"
             />
 
             <DropdownMenu>
@@ -337,7 +519,7 @@ export default function CompetitiveStrategyScreen() {
                     type="button"
                     className="inline-flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-2 text-sm font-medium aria-expanded:border-primary"
                   >
-                    <span aria-hidden>{currentMarket.flag}</span>
+                    <MarketFlag code={currentMarket.code} />
                     {currentMarket.label}
                     <ChevronDown className="size-4 text-muted-foreground" />
                   </button>
@@ -345,42 +527,66 @@ export default function CompetitiveStrategyScreen() {
               />
               <DropdownMenuContent align="end" className="min-w-44">
                 {MARKET_OPTIONS.map((m) => (
-                  <DropdownMenuItem key={m.code} onClick={() => setMarket(m.code)}>
-                    <span aria-hidden className="text-base">{m.flag}</span>
+                  <DropdownMenuItem
+                    key={m.code}
+                    onClick={() => setMarket(m.code)}
+                  >
+                    <MarketFlag code={m.code} />
                     {m.label}
-                    {market === m.code && <Check className="ml-auto !text-primary" />}
+                    {market === m.code && (
+                      <Check className="ml-auto !text-primary" />
+                    )}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
 
+            <Button type="submit" form="add-competitor" variant="default" className="shrink-0">
+              <Plus className="size-4" /> Add
+            </Button>
           </div>
 
-          {effectiveSelected.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {effectiveSelected.map((d) => {
-                const row = rows.find((r) => r.domain === d)
-                return (
-                  <div
-                    key={d}
-                    className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium"
+          {/* VS comparison: your website vs each selected competitor. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {primaryHost && (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm font-semibold">
+                <Favicon domain={primaryHost} size={16} />
+                <span className="truncate">{primaryHost}</span>
+                <span className="shrink-0 rounded bg-primary/15 px-1.5 py-px text-xs font-medium text-primary">
+                  Your Website
+                </span>
+              </div>
+            )}
+            {competitorDomains.map((d) => (
+              <React.Fragment key={d}>
+                <span className="px-0.5 text-xs font-bold text-muted-foreground">
+                  VS
+                </span>
+                <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium">
+                  <Link
+                    href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(d)}`}
+                    title={`View ${d} keywords`}
+                    className="flex min-w-0 items-center gap-2 hover:text-primary"
                   >
-                    <span className="size-2 shrink-0 rounded-full" style={{ background: colorFor(d) }} />
+                    <Favicon domain={d} size={16} />
                     <span className="truncate">{d}</span>
-                    {row?.is_you && <span className="shrink-0 text-xs text-primary">(you)</span>}
-                    <button
-                      type="button"
-                      onClick={() => removeDomain(d)}
-                      aria-label={`Remove ${d}`}
-                      className="shrink-0 rounded text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => removeDomain(d)}
+                    aria-label={`Remove ${d}`}
+                    className="shrink-0 rounded text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              </React.Fragment>
+            ))}
+            <span className="ml-1 text-xs text-muted-foreground">
+              {competitorDomains.length} competitor
+              {competitorDomains.length === 1 ? "" : "s"}
+            </span>
+          </div>
         </CardContent>
       </Card>
 
@@ -430,7 +636,11 @@ export default function CompetitiveStrategyScreen() {
                 >
                   All dates
                 </button>
-                {range?.from && <span className="text-xs text-muted-foreground">{rangeLabel}</span>}
+                {range?.from && (
+                  <span className="text-xs text-muted-foreground">
+                    {rangeLabel}
+                  </span>
+                )}
               </div>
             </PopoverContent>
           </Popover>
@@ -442,37 +652,35 @@ export default function CompetitiveStrategyScreen() {
         <Popover>
           <PopoverTrigger
             render={
-              <Button size="sm" variant={activeFilterCount ? "default" : "outline"}>
-                <SlidersHorizontal /> All Filters{activeFilterCount ? ` · ${activeFilterCount}` : ""}
+              <Button
+                size="sm"
+                variant={activeFilterCount ? "default" : "outline"}
+              >
+                <SlidersHorizontal /> All Filters
+                {activeFilterCount ? ` · ${activeFilterCount}` : ""}
               </Button>
             }
           />
           <PopoverContent align="start" className="w-72 space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="min-traffic" className="text-xs font-medium text-muted-foreground">
+              <label
+                htmlFor="min-traffic"
+                className="text-xs font-medium text-muted-foreground"
+              >
                 Minimum estimated traffic
               </label>
-              <input
+              <Input
                 id="min-traffic"
                 type="number"
                 min={0}
                 step={1000}
                 value={minTraffic || ""}
-                onChange={(e) => setMinTraffic(Math.max(0, Number(e.target.value) || 0))}
+                onChange={(e) =>
+                  setMinTraffic(Math.max(0, Number(e.target.value) || 0))
+                }
                 placeholder="0"
-                data-slot="input"
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus-visible:border-primary"
               />
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={excludeYou}
-                onChange={(e) => setExcludeYou(e.target.checked)}
-                className="size-4 accent-[var(--primary)]"
-              />
-              Exclude my domain
-            </label>
             <button
               type="button"
               onClick={resetFilters}
@@ -484,38 +692,59 @@ export default function CompetitiveStrategyScreen() {
           </PopoverContent>
         </Popover>
 
-        {q && <FilterChip label={`Search: ${search.trim()}`} onClear={() => setSearch("")} />}
-        {minTraffic > 0 && <FilterChip label={`≥ ${fmtTraffic(minTraffic)} traffic`} onClear={() => setMinTraffic(0)} />}
-        {excludeYou && <FilterChip label="Exclude you" onClear={() => setExcludeYou(false)} />}
-        {range?.from && <FilterChip label={rangeLabel} onClear={() => setRange(undefined)} />}
+        {q && (
+          <FilterChip
+            label={`Search: ${search.trim()}`}
+            onClear={() => setSearch("")}
+          />
+        )}
+        {minTraffic > 0 && (
+          <FilterChip
+            label={`≥ ${fmtTraffic(minTraffic)} traffic`}
+            onClear={() => setMinTraffic(0)}
+          />
+        )}
+        {range?.from && (
+          <FilterChip label={rangeLabel} onClear={() => setRange(undefined)} />
+        )}
 
         {activeFilterCount > 0 && (
-          <button type="button" onClick={resetFilters} className="px-2 text-sm font-medium text-primary">
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="px-2 text-sm font-medium text-primary"
+          >
             Reset
           </button>
         )}
 
-        <div className="ml-auto flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-1.5 text-sm focus-within:border-primary">
-          <Search className="size-4 text-muted-foreground" />
-          <input
+        <div className="relative ml-auto w-full max-w-56">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search in results…"
-            className="w-40 bg-transparent outline-none placeholder:text-muted-foreground"
+            className="pl-9"
           />
         </div>
       </div>
 
       {view === "overlap" ? (
-        <CompetitorGapOverlap strategy={strategy} search={q} />
+        <CompetitorGapOverlap
+          competitors={competitorDomains}
+          market={market}
+          search={q}
+        />
       ) : (
         /* Performance summary. */
         <Card>
           <CardContent className="space-y-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <span className="dashboard-icon"><BarChart3 className="size-4" /></span>
+                <span className="dashboard-icon">
+                  <BarChart3 className="size-4" />
+                </span>
                 <div>
                   <h2 className="text-base font-semibold leading-tight">
                     Performance Summary for {summaryMonth}
@@ -538,77 +767,152 @@ export default function CompetitiveStrategyScreen() {
                     </button>
                   ))}
                 </div>
-                <Button variant="outline" size="icon-sm" aria-label="Export">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Download CSV"
+                  onClick={exportCsv}
+                  disabled={!trendRows.length}
+                >
                   <Download />
                 </Button>
-                <Button variant="outline" size="icon-sm" aria-label="Columns">
-                  <Columns2 />
-                </Button>
-                <Button variant="outline" size="icon-sm" aria-label="Expand">
-                  <Maximize2 />
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={expanded ? "Exit full screen" : "Full screen"}
+                  onClick={() => setExpanded((e) => !e)}
+                >
+                  {expanded ? <Minimize2 /> : <Maximize2 />}
                 </Button>
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div
+              className={
+                expanded
+                  ? "fixed inset-0 z-50 grid content-center gap-6 overflow-auto bg-background p-6 lg:grid-cols-[minmax(0,1fr)_18rem]"
+                  : "grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]"
+              }
+            >
+              {expanded && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  aria-label="Exit full screen"
+                  className="fixed right-5 top-5 z-10 rounded-lg border border-input bg-card p-2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
               <div>
                 {enoughHistory ? (
                   <>
                     <CompetitorTrafficChart rows={trendRows} series={series} />
                     <div className="mt-2 flex flex-wrap justify-center gap-5">
                       {series.map((s) => (
-                        <span key={s.key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span className="size-2.5 rounded-full" style={{ background: s.color }} />
+                        <span
+                          key={s.key}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                        >
+                          <span
+                            className="size-2.5 rounded-full"
+                            style={{ background: s.color }}
+                          />
                           {s.label}
                         </span>
                       ))}
                     </div>
                   </>
-                ) : !field ? (
+                ) : hasSeriesData ? (
                   <div className="flex h-[20rem] items-center justify-center rounded-xl border border-dashed border-border px-6 text-center text-sm text-muted-foreground">
-                    Search volume isn’t tracked per competitor yet — switch to Estimated Traffic or Ranking Keywords.
+                    No data in the selected date range — widen the range to see
+                    the trend.
                   </div>
-                ) : allDates.length >= 2 ? (
-                  <div className="flex h-[20rem] items-center justify-center rounded-xl border border-dashed border-border px-6 text-center text-sm text-muted-foreground">
-                    No data in the selected date range — widen the range to see the trend.
+                ) : metric === "volume" ? (
+                  // Search volume is derived from each domain's ranked keywords.
+                  <div className="flex h-[20rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border px-6 text-center">
+                    <p className="text-sm font-medium">
+                      No search-volume data yet for these domains.
+                    </p>
+                    <p className="max-w-sm text-sm text-muted-foreground">
+                      Search volume is built from each domain’s ranked keywords.
+                      Fetch ranked keywords for your website and competitors to
+                      populate this tab.
+                    </p>
+                    <Button
+                      size="sm"
+                      render={<Link href="/dashboard/competitors/keywords" />}
+                    >
+                      <RefreshCw /> Fetch keyword data
+                    </Button>
                   </div>
                 ) : (
-                  // No stored history yet: one fetch pulls the last 12 months.
+                  // No monthly traffic/keyword history yet: one fetch pulls 12 months.
                   <div className="flex h-[20rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border px-6 text-center">
-                    <p className="text-sm font-medium">No trend data yet for this market.</p>
+                    <p className="text-sm font-medium">
+                      No trend data yet for this market.
+                    </p>
                     <p className="max-w-sm text-sm text-muted-foreground">
-                      Fetch the last 12 months of competitor estimated traffic and
-                      ranking-keyword history. One fetch builds the whole trend.
+                      Fetch the last 12 months of competitor estimated traffic
+                      and ranking-keyword history. One fetch builds the whole
+                      trend.
                     </p>
                     <Button
                       size="sm"
                       onClick={() => refreshAnalytics(allDates.length > 0)}
                       disabled={refreshing || !ready}
                     >
-                      {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-                      {refreshing ? "Fetching 12-month history…" : "Fetch metrics data"}
+                      {refreshing ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <RefreshCw />
+                      )}
+                      {refreshing
+                        ? "Fetching 12-month history…"
+                        : "Fetch metrics data"}
                     </Button>
-                    {error && <p className="text-xs text-destructive">{error}</p>}
+                    {error && (
+                      <p className="text-xs text-destructive">{error}</p>
+                    )}
                   </div>
                 )}
               </div>
 
               <div className="rounded-xl border border-border bg-muted/30 p-4">
                 <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                  <BarChart3 className="size-4 text-primary" /> Traffic Share
+                  <BarChart3 className="size-4 text-primary" /> {shareTitle}
                 </p>
-                <CompetitorShareDonut data={share} centerLabel={summaryMonth} />
-                <ul className="mt-3 space-y-1.5">
-                  {share.map((s) => (
-                    <li key={s.name} className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <span className="size-2.5 rounded-sm" style={{ background: s.color }} />
-                        {s.name}
-                      </span>
-                      <span className="font-semibold tabular-nums">{s.value.toFixed(1)}%</span>
-                    </li>
-                  ))}
-                </ul>
+                {share.length > 0 ? (
+                  <>
+                    <CompetitorShareDonut
+                      data={share}
+                      centerLabel={summaryMonth}
+                    />
+                    <ul className="mt-3 space-y-1.5">
+                      {share.map((s) => (
+                        <li
+                          key={s.name}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span className="flex items-center gap-2 text-muted-foreground">
+                            <span
+                              className="size-2.5 rounded-sm"
+                              style={{ background: s.color }}
+                            />
+                            {s.name}
+                          </span>
+                          <span className="font-semibold tabular-nums">
+                            {s.value.toFixed(1)}%
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="py-10 text-center text-sm text-muted-foreground">
+                    No {shareTitle.toLowerCase()} for this month yet.
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>

@@ -229,10 +229,13 @@ export interface CompetitorAnalytics {
 }
 
 export interface AnalyticsHistoryPoint {
-  /** ISO yyyy-mm-dd */
+  /** ISO yyyy-mm-dd (first of the month) */
   captured_on: string
-  organic_traffic: number
-  ranking_keywords: number
+  /** Any metric may be null for a month (its source has no value then) — never zero-filled. */
+  organic_traffic: number | null
+  ranking_keywords: number | null
+  /** Total search volume of the domain's ranked keywords that month. */
+  search_volume: number | null
 }
 
 export interface AnalyticsHistorySeries {
@@ -249,6 +252,27 @@ export interface CompetitorAnalyticsHistory {
   /** Union of all captured dates, ascending. */
   dates: string[]
   competitors: AnalyticsHistorySeries[]
+}
+
+export interface GapKeyword {
+  keyword: string
+  position: number | null
+  search_volume: number
+  etv: number
+}
+export interface GapSummaryRow {
+  domain: string
+  has_run: boolean          // false = competitor's ranked keywords not fetched yet
+  overlap: number           // keywords we both rank for
+  gap: number               // keywords they rank for and we don't
+  gap_volume: number        // total search volume of the gap (opportunity size)
+  gap_etv: number
+  top_gaps: GapKeyword[]
+}
+/** Keyword overlap/gap per competitor, from stored ranked-keyword runs. */
+export interface CompetitorGapSummary {
+  has_our_run: boolean      // false = our own ranked keywords not fetched yet
+  competitors: GapSummaryRow[]
 }
 
 function base(wid: string, did: string) {
@@ -302,6 +326,24 @@ export const opportunityApi = {
   competitorAnalyticsHistory: (wid: string, did: string, country?: AnalyticsCountry) =>
     apiClient.get<CompetitorAnalyticsHistory>(
       `${base(wid, did)}/strategy/analytics/history${country ? `?country=${country}` : ""}`),
+
+  /** Keyword overlap/gap per competitor, from stored ranked keywords (DB only). */
+  competitorGapSummary: (
+    wid: string, did: string,
+    opts: { country?: AnalyticsCountry; competitors?: string[] } = {},
+  ) =>
+    apiClient.get<CompetitorGapSummary>(
+      `${base(wid, did)}/strategy/gap-summary` +
+        (() => {
+          const qs = [
+            opts.country ? `country=${opts.country}` : "",
+            opts.competitors?.length
+              ? `competitors=${encodeURIComponent(opts.competitors.join(","))}`
+              : "",
+          ].filter(Boolean).join("&")
+          return qs ? `?${qs}` : ""
+        })(),
+    ),
 
   /** Fetches stale/missing metrics from DataForSEO (paid) and stores them. */
   refreshCompetitorAnalytics: (

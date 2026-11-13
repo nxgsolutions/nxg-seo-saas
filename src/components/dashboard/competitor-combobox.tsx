@@ -42,11 +42,13 @@ export function normalizeDomain(raw: string): string {
 export function CompetitorCombobox({
   options, onPick, placeholder = "Type or pick a competitor, e.g. drishtiias.com",
   actionLabel, actionIcon, actionVariant = "outline", disabled = false, busy = false,
-  className, clearOnPick = false, value,
+  className, clearOnPick = false, value, formId,
 }: {
   options: CompetitorOption[]
   onPick: (domain: string) => void
   placeholder?: string
+  /** id on the <form>, so an external submit button can trigger it (form=…). */
+  formId?: string
   /** Submit button label. Omit for no button: picking a suggestion or pressing
    * Enter on a typed domain already submits. */
   actionLabel?: string
@@ -120,7 +122,7 @@ export function CompetitorCombobox({
   }
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); pick(text) }} className={cn("flex w-full gap-2", className)}>
+    <form id={formId} onSubmit={(e) => { e.preventDefault(); pick(text) }} className={cn("flex w-full gap-2", className)}>
       <Autocomplete.Root
         items={items}
         value={text}
