@@ -597,7 +597,7 @@
    brand-tinted active tab. "cards" add an icon chip that fills with the brand
    colour when active, so page switchers read as separate destinations. */
 .segmented-tabs { background: color-mix(in srgb, var(--muted) 80%, var(--card)); border-color: var(--border); }
-.segmented-tab { color: var(--muted-foreground); }
+.segmented-tab { color: var(--muted-foreground); transition: color .2s ease, background-color .2s ease, box-shadow .2s ease; }
 .segmented-tab:hover { color: var(--foreground); background: color-mix(in srgb, var(--card) 60%, transparent); }
 .segmented-tab:focus-visible { box-shadow: 0 0 0 2px var(--ring); }
 .segmented-tab[data-active] {

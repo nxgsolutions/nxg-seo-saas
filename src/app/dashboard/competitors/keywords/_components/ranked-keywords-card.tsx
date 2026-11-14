@@ -60,6 +60,7 @@ import {
 import { SearchInput } from "@/components/ui/search-input"
 import { ColumnHelp, HeaderWithHelp } from "@/components/ui/column-help"
 import { COLUMN_HELP } from "@/lib/column-help"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 const SCOPES: { id: RankedScope; label: string; hint: string }[] = [
   // "Relevant" = the backend topic rule (DATAFORSEO_RELEVANT_KEYWORD_REGEX) + position/volume limits.
@@ -847,61 +848,64 @@ export function RankedKeywordsCard({
               </div>
             )}
 
-            {/* Size + cost check before a multi-page fetch */}
-            {estimate && estimate.scope === activeScope && (
-              <div className="mx-6 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
-                <div className="space-y-0.5">
-                  <p>
-                    <strong>{estimate.matching_count.toLocaleString()}</strong>{" "}
-                    {activeScope === "relevant" ? "relevant " : ""}keywords
-                    match. Load{" "}
-                    <strong>{estimate.to_fetch.toLocaleString()}</strong> of
-                    them now.
+            {/* Size + cost check before a multi-page fetch — the shared
+                ConfirmDialog (blurred backdrop, smooth open/close animation). */}
+            <ConfirmDialog
+              open={Boolean(estimate && estimate.scope === activeScope)}
+              onOpenChange={(open) => {
+                if (!open) setEstimate(null)
+              }}
+              tone="default"
+              icon={<CloudDownload className="size-5" />}
+              title="Load competitor keywords"
+              description={
+                estimate ? (
+                  <>
+                    <strong className="text-foreground">
+                      {estimate.matching_count.toLocaleString()}
+                    </strong>{" "}
+                    {activeScope === "relevant" ? "relevant " : ""}keywords match
+                    for <strong className="text-foreground">{selected}</strong>.
+                    We&apos;ll load{" "}
+                    <strong className="text-foreground">
+                      {estimate.to_fetch.toLocaleString()}
+                    </strong>{" "}
+                    of them now.
                     {/* Not shown: estimate.requests paid requests, usd(estimate.estimated_cost). */}
+                  </>
+                ) : null
+              }
+              details={
+                estimate?.capped ? (
+                  <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    Limited to {estimate.max_keywords.toLocaleString()} keywords
+                    at a time.
+                    {/* Not shown: per-fetch cap estimate.max_cost (USD), full cost usd(estimate.full_cost). */}
                   </p>
-                  {estimate.capped && (
-                    <p className="text-xs text-muted-foreground">
-                      Limited to {estimate.max_keywords.toLocaleString()}{" "}
-                      keywords at a time.
-                      {/* Not shown: per-fetch cap estimate.max_cost (USD), full cost usd(estimate.full_cost). */}
-                    </p>
-                  )}
-                  {/* Not shown: this size check cost usd(estimate.check_cost). */}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setEstimate(null)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={fetching || estimate.to_fetch === 0}
-                    onClick={() =>
-                      fetchNow(
-                        Boolean(
-                          data.stored_scopes.find(
-                            (x) => x.scope === activeScope,
-                          ),
-                        ),
-                      )
-                    }
-                  >
-                    {fetching ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <CloudDownload className="size-4" />
-                    )}
-                    Load {estimate.to_fetch.toLocaleString()} keywords
-                  </Button>
-                </div>
-              </div>
-            )}
+                ) : undefined
+              }
+              confirmLabel={`Load ${estimate?.to_fetch.toLocaleString() ?? ""} keywords`}
+              confirmDisabled={!estimate || estimate.to_fetch === 0}
+              errorText="Couldn't load the data. Please try again."
+              onConfirm={async () => {
+                try {
+                  await refreshMutation.mutateAsync({
+                    domain: selected,
+                    force: Boolean(
+                      data.stored_scopes.find((x) => x.scope === activeScope),
+                    ),
+                    scope: activeScope,
+                    maxKeywords: estimate?.to_fetch,
+                  })
+                  setScope(activeScope)
+                  setPage(1)
+                } catch (e) {
+                  throw new Error(errorMessage(e, "Couldn't load the data."))
+                }
+              }}
+            />
 
             {!hasRows ? (
-              !(estimate && estimate.scope === activeScope) && (
                 <div className="border-t border-border px-6 py-10 text-center">
                   <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
                     <Inbox className="size-5" />
@@ -943,7 +947,6 @@ export function RankedKeywordsCard({
                     </p>
                   )}
                 </div>
-              )
             ) : (
               <>
                 {/* Keywords / Top pages */}

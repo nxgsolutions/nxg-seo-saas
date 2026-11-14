@@ -28,7 +28,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  SlidersHorizontal,
   Swords,
   Users,
   X,
@@ -139,6 +138,14 @@ function MarketFlag({ code }: { code: AnalyticsCountry }) {
 // traffic); the user can remove any or add their own with the Add field.
 const DEFAULT_COMPARE = 4
 
+/** The last 12 months (today minus one year → today) — the date picker's default. */
+function lastYearRange(): DateRange {
+  const to = new Date()
+  const from = new Date()
+  from.setFullYear(from.getFullYear() - 1)
+  return { from, to }
+}
+
 /** Normalize a typed domain/URL to a bare host (drops scheme, www, path). */
 function normHost(value: string): string {
   return value
@@ -158,23 +165,12 @@ function fmtMonthYear(iso: string): string {
   const d = new Date(iso + "T00:00:00")
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" })
 }
-function fmtRangeDate(d: Date): string {
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-}
 /** Local (not UTC) yyyy-mm-dd, to compare a Date against stored ISO day strings. */
 function toISODate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0")
   const day = String(d.getDate()).padStart(2, "0")
   return `${d.getFullYear()}-${m}-${day}`
 }
-/** Compact traffic figure for filter chips (12.3M / 840K / 500). */
-function fmtTraffic(n: number): string {
-  if (n >= 1_000_000)
-    return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
-  if (n >= 1_000) return `${Math.round(n / 1_000)}K`
-  return `${n}`
-}
-
 function FilterChip({
   label,
   onClear,
@@ -220,8 +216,7 @@ export default function CompetitiveStrategyScreen() {
   const [selected, setSelected] = React.useState<string[] | null>(null)
   // Filters (narrow what the charts show). Reset clears all of these.
   const [search, setSearch] = React.useState("")
-  const [minTraffic, setMinTraffic] = React.useState(0)
-  const [range, setRange] = React.useState<DateRange | undefined>(undefined)
+  const [range, setRange] = React.useState<DateRange | undefined>(() => lastYearRange())
   // Expand the chart + donut area to fill the screen (in-app overlay).
   const [expanded, setExpanded] = React.useState(false)
   React.useEffect(() => {
@@ -365,17 +360,8 @@ export default function CompetitiveStrategyScreen() {
   const q = search.trim().toLowerCase()
   const passes = (domain: string) => {
     if (domain === primaryHost) return true // primary is always shown
-    const row = rows.find((r) => r.domain === domain)
     if (q && !domain.toLowerCase().includes(q)) return false
-    if (minTraffic > 0 && (row?.organic_traffic ?? 0) < minTraffic) return false
     return true
-  }
-  const activeFilterCount =
-    (q ? 1 : 0) + (minTraffic > 0 ? 1 : 0) + (range?.from ? 1 : 0)
-  const resetFilters = () => {
-    setSearch("")
-    setMinTraffic(0)
-    setRange(undefined)
   }
 
   // Active metric + the date window — shared by BOTH the line chart and the donut
@@ -465,7 +451,7 @@ export default function CompetitiveStrategyScreen() {
     ? `${fmtMonthYear(allDates[0])} – ${fmtMonthYear(allDates[allDates.length - 1])}`
     : "No history yet"
   const rangeLabel = range?.from
-    ? `${fmtRangeDate(range.from)} – ${fmtRangeDate(range.to ?? range.from)}`
+    ? `${fmtMonthYear(toISODate(range.from))} – ${fmtMonthYear(toISODate(range.to ?? range.from))}`
     : defaultSpan
   const currentMarket =
     MARKET_OPTIONS.find((m) => m.code === market) ?? MARKET_OPTIONS[0]
@@ -590,8 +576,8 @@ export default function CompetitiveStrategyScreen() {
         </CardContent>
       </Card>
 
-      {/* View tabs + date range. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Controls — view tabs · All Filters · date range · search, all one row. */}
+      <div className="flex flex-wrap items-center gap-2">
         <div className="segmented-tabs flex w-fit gap-1 rounded-2xl border p-1">
           {VIEWS.map((t) => (
             <button
@@ -606,7 +592,20 @@ export default function CompetitiveStrategyScreen() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* "All Filters" removed for now — it only held a min-traffic filter that
+            wasn't useful yet. Re-add a <Popover> of filters here (and the backing
+            state) when there are real filters to offer. The free-text "Search in
+            results" box on the right still works. */}
+
+        {q && (
+          <FilterChip
+            label={`Search: ${search.trim()}`}
+            onClear={() => setSearch("")}
+          />
+        )}
+
+        {/* Right side: date range (from → to, defaults to last 12 months) + search. */}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <Popover>
             <PopoverTrigger
               render={
@@ -626,107 +625,31 @@ export default function CompetitiveStrategyScreen() {
                 selected={range}
                 onSelect={setRange}
                 defaultMonth={calendarMonth}
-                numberOfMonths={1}
+                numberOfMonths={2}
               />
               <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                 <button
                   type="button"
-                  onClick={() => setRange(undefined)}
+                  onClick={() => setRange(lastYearRange())}
                   className="text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
-                  All dates
+                  Last 12 months
                 </button>
-                {range?.from && (
-                  <span className="text-xs text-muted-foreground">
-                    {rangeLabel}
-                  </span>
-                )}
+                <span className="text-xs text-muted-foreground">{rangeLabel}</span>
               </div>
             </PopoverContent>
           </Popover>
-        </div>
-      </div>
 
-      {/* Filter row — working filters over the compared competitors. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Popover>
-          <PopoverTrigger
-            render={
-              <Button
-                size="sm"
-                variant={activeFilterCount ? "default" : "outline"}
-              >
-                <SlidersHorizontal /> All Filters
-                {activeFilterCount ? ` · ${activeFilterCount}` : ""}
-              </Button>
-            }
-          />
-          <PopoverContent align="start" className="w-72 space-y-4">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="min-traffic"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Minimum estimated traffic
-              </label>
-              <Input
-                id="min-traffic"
-                type="number"
-                min={0}
-                step={1000}
-                value={minTraffic || ""}
-                onChange={(e) =>
-                  setMinTraffic(Math.max(0, Number(e.target.value) || 0))
-                }
-                placeholder="0"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={resetFilters}
-              disabled={!activeFilterCount}
-              className="text-xs font-medium text-primary disabled:opacity-50"
-            >
-              Reset filters
-            </button>
-          </PopoverContent>
-        </Popover>
-
-        {q && (
-          <FilterChip
-            label={`Search: ${search.trim()}`}
-            onClear={() => setSearch("")}
-          />
-        )}
-        {minTraffic > 0 && (
-          <FilterChip
-            label={`≥ ${fmtTraffic(minTraffic)} traffic`}
-            onClear={() => setMinTraffic(0)}
-          />
-        )}
-        {range?.from && (
-          <FilterChip label={rangeLabel} onClear={() => setRange(undefined)} />
-        )}
-
-        {activeFilterCount > 0 && (
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="px-2 text-sm font-medium text-primary"
-          >
-            Reset
-          </button>
-        )}
-
-        <div className="relative ml-auto w-full max-w-56">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search in results…"
-            className="pl-9"
-          />
+          <div className="relative w-48">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search in results…"
+              className="pl-9"
+            />
+          </div>
         </div>
       </div>
 
@@ -738,7 +661,7 @@ export default function CompetitiveStrategyScreen() {
         />
       ) : (
         /* Performance summary. */
-        <Card>
+        <Card className="duration-300 animate-in fade-in slide-in-from-bottom-1">
           <CardContent className="space-y-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -804,22 +727,24 @@ export default function CompetitiveStrategyScreen() {
                   <X className="size-4" />
                 </button>
               )}
-              <div>
+              <div key={metric} className="duration-300 animate-in fade-in">
                 {enoughHistory ? (
                   <>
                     <CompetitorTrafficChart rows={trendRows} series={series} />
                     <div className="mt-2 flex flex-wrap justify-center gap-5">
                       {series.map((s) => (
-                        <span
+                        <Link
                           key={s.key}
-                          className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                          href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(s.label)}`}
+                          title={`View ${s.label} keywords`}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary"
                         >
                           <span
                             className="size-2.5 rounded-full"
                             style={{ background: s.color }}
                           />
                           {s.label}
-                        </span>
+                        </Link>
                       ))}
                     </div>
                   </>
@@ -894,15 +819,23 @@ export default function CompetitiveStrategyScreen() {
                           key={s.name}
                           className="flex items-center justify-between text-sm"
                         >
-                          <span className="flex items-center gap-2 text-muted-foreground">
+                          <Link
+                            href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(s.name)}`}
+                            title={`View ${s.name} keywords`}
+                            className="flex min-w-0 items-center gap-2 text-muted-foreground hover:text-primary"
+                          >
                             <span
-                              className="size-2.5 rounded-sm"
+                              className="size-2.5 shrink-0 rounded-sm"
                               style={{ background: s.color }}
                             />
-                            {s.name}
-                          </span>
+                            <span className="truncate">{s.name}</span>
+                          </Link>
                           <span className="font-semibold tabular-nums">
-                            {s.value.toFixed(1)}%
+                            {s.value >= 0.05
+                              ? `${s.value.toFixed(1)}%`
+                              : s.value > 0
+                                ? "<0.1%"
+                                : "0.0%"}
                           </span>
                         </li>
                       ))}
