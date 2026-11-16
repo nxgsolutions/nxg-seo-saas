@@ -403,6 +403,11 @@ export const opportunityApi = {
     opts: {
       country?: AnalyticsCountry; competitors?: string[]; bucket?: GapBucket
       minVolume?: number; intent?: string; q?: string
+      /** Advanced filters (all optional; applied over the stored gap rows). */
+      contains?: string; excludes?: string; serpFeature?: string
+      posMin?: number | null; posMax?: number | null
+      kdMin?: number | null; kdMax?: number | null
+      brand?: "all" | "brand" | "non_brand"; brandTerm?: string
       sort?: string; order?: "asc" | "desc"; page?: number; pageSize?: number
     } = {},
   ) => {
@@ -413,6 +418,17 @@ export const opportunityApi = {
     if (opts.minVolume) params.set("min_volume", String(opts.minVolume))
     if (opts.intent && opts.intent !== "all") params.set("intent", opts.intent)
     if (opts.q) params.set("q", opts.q)
+    if (opts.contains) params.set("contains", opts.contains)
+    if (opts.excludes) params.set("excludes", opts.excludes)
+    if (opts.serpFeature) params.set("serp_feature", opts.serpFeature)
+    if (opts.posMin != null) params.set("pos_min", String(opts.posMin))
+    if (opts.posMax != null) params.set("pos_max", String(opts.posMax))
+    if (opts.kdMin != null) params.set("kd_min", String(opts.kdMin))
+    if (opts.kdMax != null) params.set("kd_max", String(opts.kdMax))
+    if (opts.brand && opts.brand !== "all") {
+      params.set("brand", opts.brand)
+      if (opts.brandTerm) params.set("brand_term", opts.brandTerm)
+    }
     params.set("sort", opts.sort ?? "search_volume")
     params.set("order", opts.order ?? "desc")
     params.set("page", String(opts.page ?? 1))
@@ -433,13 +449,17 @@ export const opportunityApi = {
       `${base(wid, did)}/strategy/keyword-overlap${qs ? `?${qs}` : ""}`)
   },
 
-  /** Fetches stale/missing metrics from DataForSEO (paid) and stores them. */
+  /** Fetches stale/missing metrics from DataForSEO (paid) and stores them.
+   * `competitors` scopes the fetch to a subset (e.g. only domains missing
+   * history); with force=false, domains already stored fresh are skipped. */
   refreshCompetitorAnalytics: (
-    wid: string, did: string, opts: { country?: AnalyticsCountry; force?: boolean } = {},
+    wid: string, did: string,
+    opts: { country?: AnalyticsCountry; force?: boolean; competitors?: string[] } = {},
   ) =>
     apiClient.post<CompetitorAnalytics>(
       `${base(wid, did)}/strategy/analytics/refresh?force=${opts.force ?? false}`
-      + `${opts.country ? `&country=${opts.country}` : ""}`,
+      + `${opts.country ? `&country=${opts.country}` : ""}`
+      + `${opts.competitors?.length ? `&competitors=${encodeURIComponent(opts.competitors.join(","))}` : ""}`,
       {},
     ),
 

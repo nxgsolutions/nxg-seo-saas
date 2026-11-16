@@ -55,10 +55,13 @@ export function useCompetitiveStrategyData(country: AnalyticsCountry = "in") {
 
   // Paid (DataForSEO Labs): fetch whole-site metrics + 12-month history, then
   // refetch the analytics and trend so the charts fill in. `force` re-fetches
-  // domains whose stored data is still fresh.
+  // domains whose stored data is still fresh; `competitors` scopes the fetch to
+  // a subset (e.g. only domains missing history) so stored data is reused.
   const refresh = useMutation({
-    mutationFn: (force: boolean) =>
-      opportunityApi.refreshCompetitorAnalytics(wid, did, { country, force }),
+    mutationFn: (args: { force: boolean; competitors?: string[] }) =>
+      opportunityApi.refreshCompetitorAnalytics(wid, did, {
+        country, force: args.force, competitors: args.competitors,
+      }),
     onSuccess: () => {
       // Prefix-match invalidation covers the country-suffixed query keys.
       qc.invalidateQueries({ queryKey: queryKeys.competitorAnalytics(wid, did) })
@@ -66,9 +69,15 @@ export function useCompetitiveStrategyData(country: AnalyticsCountry = "in") {
     },
   })
   const refreshAnalytics = React.useCallback(
-    (force: boolean) => {
-      if (ready) refresh.mutate(force)
+    (force: boolean, competitors?: string[]) => {
+      if (ready) refresh.mutate({ force, competitors })
     },
+    [ready, refresh],
+  )
+  // Awaitable variant — lets a confirm dialog show busy + close on success.
+  const refreshAnalyticsAsync = React.useCallback(
+    (force: boolean, competitors?: string[]) =>
+      ready ? refresh.mutateAsync({ force, competitors }) : Promise.resolve(null),
     [ready, refresh],
   )
 
@@ -79,6 +88,7 @@ export function useCompetitiveStrategyData(country: AnalyticsCountry = "in") {
     strategy: strategy.data ?? null,
     loading: analytics.isLoading || history.isLoading || strategy.isLoading,
     refreshAnalytics,
+    refreshAnalyticsAsync,
     refreshing: refresh.isPending,
     error:
       refresh.isError

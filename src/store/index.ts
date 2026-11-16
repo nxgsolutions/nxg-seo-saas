@@ -9,6 +9,7 @@
 import { configureStore } from "@reduxjs/toolkit"
 
 import { loadActiveWorkspaceId, persistMiddleware } from "./persist"
+import competitorsReducer from "./slices/competitors-slice"
 import domainReducer from "./slices/domain-slice"
 import workspaceReducer from "./slices/workspace-slice"
 
@@ -17,10 +18,12 @@ export function makeStore() {
     reducer: {
       workspace: workspaceReducer,
       domain: domainReducer,
+      competitors: competitorsReducer,
     },
     preloadedState: {
       workspace: { activeWorkspaceId: loadActiveWorkspaceId() },
       domain: { chosenByWorkspace: {} },
+      competitors: { byDomain: {} },
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(persistMiddleware),

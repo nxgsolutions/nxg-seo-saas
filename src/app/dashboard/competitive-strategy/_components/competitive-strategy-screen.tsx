@@ -22,10 +22,11 @@ import {
   ChevronDown,
   Columns2,
   Download,
+  Filter,
+  History,
   Loader2,
   Maximize2,
   Minimize2,
-  Plus,
   RefreshCw,
   Search,
   Swords,
@@ -36,11 +37,9 @@ import type { DateRange } from "react-day-picker"
 
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Favicon } from "@/app/dashboard/competitors/_components/favicon"
-import { useActiveDomain } from "@/hooks/dashboard"
-import {
-  CompetitorCombobox,
-  type CompetitorOption,
-} from "@/components/dashboard/competitor-combobox"
+import { useActiveDomain, useCompetitorSelection } from "@/hooks/dashboard"
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
@@ -57,6 +56,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
+import { LoadingOverlay } from "@/components/ui/loading-overlay"
 import type { AnalyticsCountry } from "@/lib/api/opportunity"
 import {
   CompetitorShareDonut,
@@ -81,7 +81,8 @@ const PALETTE = [
   "#e34948",
   "#008380",
 ]
-const MAX_LINES = 6
+// Primary website + up to 4 competitors = 5 series max.
+const MAX_LINES = 5
 
 const METRICS = [
   { id: "traffic", label: "Estimated Traffic", field: "organic_traffic" },
@@ -230,6 +231,12 @@ function fmtMonthYear(iso: string): string {
 function fmtDay(d: Date): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
+/** Full date as DD-MM-YYYY (zero-padded). */
+function fmtDMY(d: Date): string {
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  return `${day}-${month}-${d.getFullYear()}`
+}
 /** Local (not UTC) yyyy-mm-dd, to compare a Date against stored ISO day strings. */
 function toISODate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0")
@@ -269,20 +276,39 @@ export default function CompetitiveStrategyScreen() {
     loading,
     error,
     refreshAnalytics,
+    refreshAnalyticsAsync,
     refreshing,
   } = useCompetitiveStrategyData(market)
   // Primary website comes from the currently selected project (top bar), never
   // hardcoded — it is always pinned first in the comparison.
   const activeDomain = useActiveDomain()
+  const domainId = activeDomain?.id ?? null
+  // Persistent, capped (max 4) competitor selection — survives navigation and
+  // refresh. `draft` = the chips being built; `compared` = what the charts show.
+  const {
+    draft,
+    compared,
+    add,
+    remove,
+    setDraft,
+    compare,
+    hydrated,
+    isDirty,
+    atLimit,
+    count,
+    max,
+  } = useCompetitorSelection(domainId)
   const [metric, setMetric] = React.useState<MetricId>("traffic")
   const [view, setView] = React.useState<ViewId>("market")
-  // Which domains are in the comparison (null = default top set). The compare
-  // bar drives the trend + donut below it.
-  const [selected, setSelected] = React.useState<string[] | null>(null)
+  // Confirm dialog for the paid "fetch history" action (competitors missing data).
+  const [confirmFetch, setConfirmFetch] = React.useState(false)
   // Filters (narrow what the charts show): free-text search + date range.
   const [search, setSearch] = React.useState("")
-  // Current text in the Add-competitor field (drives the Add button's enabled state).
-  const [addText, setAddText] = React.useState("")
+  // Market Research filters — thresholds on each competitor's current whole-site
+  // snapshot. Keyword/URL/SERP-level filters live in the Gap & Overlap tab (the
+  // trend/share here are whole-site monthly aggregates with no such dimensions).
+  const [minTraffic, setMinTraffic] = React.useState(0)
+  const [minKeywords, setMinKeywords] = React.useState(0)
   const [datePreset, setDatePreset] = React.useState<DatePreset>("6m")
   const [range, setRange] = React.useState<DateRange | undefined>(() => lastMonthsRange(6))
   // Expand the chart + donut area to fill the screen (in-app overlay).
@@ -295,6 +321,49 @@ export default function CompetitiveStrategyScreen() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [expanded])
+
+  // Seed the default comparison (strongest few competitors) the first time a
+  // website is opened with no saved selection. Runs once after the localStorage
+  // restore (`hydrated`) — afterwards the user's own selection is persisted and
+  // this never overwrites it.
+  React.useEffect(() => {
+    if (!domainId || !hydrated) return
+    if (draft.length > 0 || compared.length > 0) return
+    const r = analytics?.rows ?? []
+    if (r.length === 0) return
+    const primary = normHost(activeDomain?.domain ?? "")
+    const defaults = r
+      .filter((row) => !row.is_you && row.domain !== primary)
+      .slice(0, DEFAULT_COMPARE)
+      .map((row) => row.domain)
+    if (defaults.length === 0) return
+    setDraft(defaults)
+    compare()
+  }, [
+    domainId,
+    hydrated,
+    draft.length,
+    compared.length,
+    analytics,
+    activeDomain,
+    setDraft,
+    compare,
+  ])
+
+  // Brief "updating" flash after a Market Research filter / date / metric change,
+  // so the charts show a blurred loading overlay while they recompute.
+  const [mrPending, setMrPending] = React.useState(false)
+  const mrFilterKey = `${minTraffic}|${minKeywords}|${metric}|${market}|${datePreset}|${range?.from?.getTime() ?? ""}|${range?.to?.getTime() ?? ""}`
+  const mrFirstRun = React.useRef(true)
+  React.useEffect(() => {
+    if (mrFirstRun.current) {
+      mrFirstRun.current = false
+      return
+    }
+    setMrPending(true)
+    const t = setTimeout(() => setMrPending(false), 450)
+    return () => clearTimeout(t)
+  }, [mrFilterKey])
 
   const header = (
     <PageHeader
@@ -388,57 +457,72 @@ export default function CompetitiveStrategyScreen() {
 
   const primaryHost = normHost(activeDomain?.domain ?? "")
 
-  // Comparison set: primary is ALWAYS present and first; competitors follow.
-  // Default competitor set = strongest few domains.
-  const chosen = selected ?? rows.slice(0, DEFAULT_COMPARE).map((r) => r.domain)
+  // Two sets: `draft` drives the chips the user is building; `compared` (the
+  // committed set, via the Compare button) drives the charts below. Primary is
+  // always pinned first and never counts toward the 4-competitor cap.
+  const draftCompetitors = draft.filter((d) => d !== primaryHost)
+  const comparedCompetitors = compared.filter((d) => d !== primaryHost)
   const effectiveSelected = primaryHost
-    ? [primaryHost, ...chosen.filter((d) => d !== primaryHost)]
-    : chosen
+    ? [primaryHost, ...comparedCompetitors]
+    : comparedCompetitors
   const selectedSet = new Set(effectiveSelected)
-  const competitorDomains = effectiveSelected.filter((d) => d !== primaryHost)
+  const competitorDomains = comparedCompetitors
 
   // Known competitors for THIS website: stored analytics rows + its SERP
-  // footprint. The comparison only ever uses these — never an external domain.
-  const knownDomains = new Map<string, CompetitorOption>()
-  rows.forEach((r) =>
+  // footprint. The combobox only ever offers these — never an external domain.
+  const knownDomains = new Map<string, ComboboxOption>()
+  rows.forEach((r) => {
+    if (r.is_you || r.domain === primaryHost) return
     knownDomains.set(r.domain, {
-      domain: r.domain,
-      tag: r.is_you ? "you" : "competitor",
+      value: r.domain,
       hint: `${r.traffic_share.toFixed(1)}%`,
-    }),
-  )
-  ;(strategy?.competitors ?? []).forEach((c) => {
-    if (!knownDomains.has(c.domain))
-      knownDomains.set(c.domain, { domain: c.domain, tag: "competitor" })
+      icon: <Favicon domain={r.domain} size={16} />,
+    })
   })
-  const addOptions = [...knownDomains.values()].filter(
-    (o) => !selectedSet.has(o.domain),
-  )
-  // The Add button is enabled only when the field holds a known competitor that
-  // isn't already compared (i.e. one the user actually selected from the list).
-  const canAddCompetitor =
-    !!normHost(addText) &&
-    knownDomains.has(normHost(addText)) &&
-    !selectedSet.has(normHost(addText))
+  ;(strategy?.competitors ?? []).forEach((c) => {
+    if (c.domain === primaryHost) return
+    if (!knownDomains.has(c.domain))
+      knownDomains.set(c.domain, {
+        value: c.domain,
+        icon: <Favicon domain={c.domain} size={16} />,
+      })
+  })
+  const comboOptions = [...knownDomains.values()]
 
+  // Selecting a competitor in the combobox adds it as a chip immediately (no Add
+  // button). The cap is enforced in the hook; the combobox is also disabled at 4.
   const pickDomain = (d: string) => {
     const h = normHost(d)
-    // Only this website's own competitors can be added — reject external domains.
-    if (h && knownDomains.has(h) && !effectiveSelected.includes(h))
-      setSelected([...effectiveSelected, h])
+    if (h && h !== primaryHost) add(h)
   }
-  // Primary can never be removed; only competitors are removable.
+  // Primary can never be removed; only competitors are removable from the draft.
   const removeDomain = (d: string) => {
     if (d === primaryHost) return
-    setSelected(effectiveSelected.filter((x) => x !== d))
+    remove(d)
   }
 
   // --- Filters narrow which competitors + dates appear in the charts ---
   const q = search.trim().toLowerCase()
+  // Each competitor's current whole-site snapshot (for the threshold filters).
+  const rowByDomain = new Map(rows.map((r) => [r.domain, r]))
   const passes = (domain: string) => {
     if (domain === primaryHost) return true // primary is always shown
     if (q && !domain.toLowerCase().includes(q)) return false
+    const row = rowByDomain.get(domain)
+    if (minTraffic > 0 && (row?.organic_traffic ?? 0) < minTraffic) return false
+    if (minKeywords > 0 && (row?.ranking_keywords ?? 0) < minKeywords) return false
     return true
+  }
+  // Active Market Research filter chips (search chip is rendered separately).
+  const marketFilters: { key: string; label: string; clear: () => void }[] = []
+  if (minTraffic > 0)
+    marketFilters.push({ key: "mt", label: `Traffic ≥ ${minTraffic.toLocaleString()}`, clear: () => setMinTraffic(0) })
+  if (minKeywords > 0)
+    marketFilters.push({ key: "mk", label: `Keywords ≥ ${minKeywords.toLocaleString()}`, clear: () => setMinKeywords(0) })
+  const resetMarketFilters = () => {
+    setMinTraffic(0)
+    setMinKeywords(0)
+    applyPreset(DATE_PRESETS[0]) // back to the default last-6-months window
   }
 
   // Active metric + the date window — shared by BOTH the line chart and the donut
@@ -542,11 +626,29 @@ export default function CompetitiveStrategyScreen() {
     ? `${fmtMonthYear(allDates[0])} – ${fmtMonthYear(allDates[allDates.length - 1])}`
     : "No history yet"
   const rangeLabel = range?.from
-    ? `${fmtMonthYear(toISODate(range.from))} – ${fmtMonthYear(toISODate(range.to ?? range.from))}`
+    ? `${fmtDMY(range.from)} – ${fmtDMY(range.to ?? range.from)}`
     : defaultSpan
   const currentMarket =
     MARKET_OPTIONS.find((m) => m.code === market) ?? MARKET_OPTIONS[0]
   const enoughHistory = dates.length >= 2 && hasSeriesData
+
+  // Compared competitors with no stored history yet (absent from the trend, or
+  // only null points). They stay selected; charts still render for the rest.
+  const historyDomainsWithData = new Set(
+    (history?.competitors ?? [])
+      .filter((c) =>
+        c.points.some(
+          (p) =>
+            p.organic_traffic != null ||
+            p.ranking_keywords != null ||
+            p.search_volume != null,
+        ),
+      )
+      .map((c) => c.domain),
+  )
+  const missingHistory = comparedCompetitors.filter(
+    (d) => !historyDomainsWithData.has(d),
+  )
 
   // Export the active tab's series as CSV (one column per domain, one row/month).
   const exportCsv = () => {
@@ -575,17 +677,23 @@ export default function CompetitiveStrategyScreen() {
       <Card>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
-            <CompetitorCombobox
-              className="min-w-[16rem] flex-1"
-              formId="add-competitor"
-              options={addOptions}
-              onPick={pickDomain}
-              onTextChange={setAddText}
-              clearOnPick
-              addOnSelect={false}
-              selectOnly
-              placeholder="Competitor to compare"
-            />
+            <div className="min-w-[16rem] flex-1">
+              <Combobox
+                options={comboOptions}
+                exclude={draftCompetitors}
+                onSelect={pickDomain}
+                disabled={atLimit}
+                loading={loading}
+                placeholder={
+                  atLimit
+                    ? "Maximum of 4 competitors selected"
+                    : "Search competitors by domain…"
+                }
+                searchPlaceholder="Search competitors…"
+                emptyLabel="No competitors found for this website yet."
+                noResultsLabel="No matching competitor."
+              />
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -617,14 +725,31 @@ export default function CompetitiveStrategyScreen() {
             </DropdownMenu>
 
             <Button
-              type="submit"
-              form="add-competitor"
+              type="button"
               variant="default"
-              disabled={!canAddCompetitor}
-              className="shrink-0 text-white disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-sky-400 disabled:hover:bg-sky-400 disabled:opacity-100"
+              onClick={compare}
+              disabled={!isDirty}
+              className="shrink-0"
             >
-              <Plus className="size-4" /> Add
+              <Swords className="size-4" /> Compare
             </Button>
+          </div>
+
+          {/* Selection count + the max-4 notice. */}
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="font-medium text-muted-foreground">
+              {count}/{max} competitors selected
+            </span>
+            {atLimit ? (
+              <span className="text-amber-600 dark:text-amber-400">
+                You can compare a maximum of 4 competitors. Remove one to add
+                another.
+              </span>
+            ) : isDirty ? (
+              <span className="text-primary">
+                Selection changed — click Compare to update the charts.
+              </span>
+            ) : null}
           </div>
 
           {/* VS comparison: your website vs each selected competitor. */}
@@ -638,12 +763,12 @@ export default function CompetitiveStrategyScreen() {
                 </span>
               </div>
             )}
-            {competitorDomains.length > 0 && (
+            {draftCompetitors.length > 0 && (
               <span className="px-0.5 text-xs font-bold text-muted-foreground">
                 VS
               </span>
             )}
-            {competitorDomains.map((d) => (
+            {draftCompetitors.map((d) => (
               <div
                 key={d}
                 className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium"
@@ -667,8 +792,8 @@ export default function CompetitiveStrategyScreen() {
               </div>
             ))}
             <span className="ml-1 text-xs text-muted-foreground">
-              {competitorDomains.length} competitor
-              {competitorDomains.length === 1 ? "" : "s"}
+              {draftCompetitors.length} competitor
+              {draftCompetitors.length === 1 ? "" : "s"}
             </span>
           </div>
         </CardContent>
@@ -690,20 +815,8 @@ export default function CompetitiveStrategyScreen() {
           ))}
         </div>
 
-        {/* "All Filters" removed for now — it only held a min-traffic filter that
-            wasn't useful yet. Re-add a <Popover> of filters here (and the backing
-            state) when there are real filters to offer. The free-text "Search in
-            results" box on the right still works. */}
-
-        {q && (
-          <FilterChip
-            label={`Search: ${search.trim()}`}
-            onClear={() => setSearch("")}
-          />
-        )}
-
-        {/* Right side: date range (from → to, defaults to last 12 months) + search. */}
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        {/* All Filters — whole-site thresholds for the Market Research charts. */}
+        {view === "market" && (
           <Popover>
             <PopoverTrigger
               render={
@@ -711,77 +824,147 @@ export default function CompetitiveStrategyScreen() {
                   type="button"
                   className="inline-flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-2 text-sm font-medium aria-expanded:border-primary"
                 >
-                  <CalendarIcon className="size-4 text-muted-foreground" />
-                  {rangeLabel}
-                  <ChevronDown className="size-4 text-muted-foreground" />
+                  <Filter className="size-4 text-muted-foreground" />
+                  All filters
+                  {marketFilters.length > 0 && (
+                    <span className="rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">
+                      {marketFilters.length}
+                    </span>
+                  )}
                 </button>
               }
             />
-            <PopoverContent align="end" className="w-auto min-w-56 p-3">
-              <p className="mb-2 px-1 text-sm font-semibold">Date range</p>
-              <div className="space-y-0.5">
-                {DATE_PRESETS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => applyPreset(p)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-                  >
-                    <span
-                      className={`grid size-4 shrink-0 place-items-center rounded-full border ${datePreset === p.id ? "border-primary" : "border-input"}`}
-                    >
-                      {datePreset === p.id && (
-                        <span className="size-2 rounded-full bg-primary" />
-                      )}
-                    </span>
-                    {p.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setDatePreset("custom")}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-                >
-                  <span
-                    className={`grid size-4 shrink-0 place-items-center rounded-full border ${datePreset === "custom" ? "border-primary" : "border-input"}`}
-                  >
-                    {datePreset === "custom" && (
-                      <span className="size-2 rounded-full bg-primary" />
-                    )}
-                  </span>
-                  Custom
-                </button>
-              </div>
-              {datePreset === "custom" && (
-                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
-                  <div className="space-y-1">
-                    <span className="text-xs font-medium text-muted-foreground">Start date</span>
-                    <DatePicker
-                      value={range?.from}
-                      onChange={(d) => setRange({ from: d, to: range?.to })}
-                      min={minDate}
-                      max={range?.to ?? maxDate}
-                      placeholder="Start date"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs font-medium text-muted-foreground">End date</span>
-                    <DatePicker
-                      value={range?.to}
-                      onChange={(d) => setRange({ from: range?.from, to: d })}
-                      min={range?.from ?? minDate}
-                      max={maxDate}
-                      placeholder="End date"
-                    />
-                  </div>
-                </div>
-              )}
-              <p className="mt-2 border-t border-border px-1 pt-2 text-xs text-muted-foreground">
-                {rangeLabel}
+            <PopoverContent align="start" className="w-80 p-4">
+              <p className="mb-1 text-sm font-semibold">Filter competitors</p>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Thresholds on each competitor’s current whole-site metrics. Keyword,
+                position and SERP-feature filters live in the Gap &amp; Overlap tab.
               </p>
+              <div className="space-y-3">
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Minimum estimated traffic / mo
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={minTraffic || ""}
+                    onChange={(e) => setMinTraffic(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="e.g. 100000"
+                    className="h-9 bg-card"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Minimum ranking keywords
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={minKeywords || ""}
+                    onChange={(e) => setMinKeywords(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="e.g. 5000"
+                    className="h-9 bg-card"
+                  />
+                </label>
+
+                {/* Date range — the window the trend + donut cover. */}
+                <div className="space-y-1.5 border-t border-border pt-3">
+                  <span className="text-xs font-medium text-muted-foreground">Date range</span>
+                  <div className="space-y-0.5">
+                    {DATE_PRESETS.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => applyPreset(p)}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                      >
+                        <span
+                          className={`grid size-4 shrink-0 place-items-center rounded-full border ${datePreset === p.id ? "border-primary" : "border-input"}`}
+                        >
+                          {datePreset === p.id && (
+                            <span className="size-2 rounded-full bg-primary" />
+                          )}
+                        </span>
+                        {p.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setDatePreset("custom")}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                    >
+                      <span
+                        className={`grid size-4 shrink-0 place-items-center rounded-full border ${datePreset === "custom" ? "border-primary" : "border-input"}`}
+                      >
+                        {datePreset === "custom" && (
+                          <span className="size-2 rounded-full bg-primary" />
+                        )}
+                      </span>
+                      Custom
+                    </button>
+                  </div>
+                  {datePreset === "custom" && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Start date</span>
+                        <DatePicker
+                          value={range?.from}
+                          onChange={(d) => setRange({ from: d, to: range?.to })}
+                          min={minDate}
+                          max={range?.to ?? maxDate}
+                          placeholder="Start date"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">End date</span>
+                        <DatePicker
+                          value={range?.to}
+                          onChange={(d) => setRange({ from: range?.from, to: d })}
+                          min={range?.from ?? minDate}
+                          max={maxDate}
+                          placeholder="End date"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <p className="px-0.5 text-xs text-muted-foreground">{rangeLabel}</p>
+                </div>
+
+                {(marketFilters.length > 0 || datePreset !== "6m") && (
+                  <button
+                    type="button"
+                    onClick={resetMarketFilters}
+                    className="w-full rounded-lg border border-border py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    Reset all filters
+                  </button>
+                )}
+              </div>
             </PopoverContent>
           </Popover>
+        )}
 
+        {q && (
+          <FilterChip
+            label={`Search: ${search.trim()}`}
+            onClear={() => setSearch("")}
+          />
+        )}
+        {view === "market" &&
+          marketFilters.map((f) => (
+            <FilterChip key={f.key} label={f.label} onClear={f.clear} />
+          ))}
+        {view === "market" && range?.from && (
+          <FilterChip
+            label={`Date: ${rangeLabel}`}
+            onClear={() => applyPreset(DATE_PRESETS[0])}
+          />
+        )}
+
+        {/* Right side: free-text search. The date range + thresholds live in the
+            All filters dropdown; the active range shows as a removable chip. */}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="relative w-48">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -789,11 +972,43 @@ export default function CompetitiveStrategyScreen() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search in results…"
-              className="pl-9"
+              className="bg-card pl-9"
             />
           </div>
         </div>
       </div>
+
+      {/* Competitors added to the comparison that have no stored history yet. */}
+      {view === "market" && missingHistory.length > 0 && (
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <div className="flex items-start gap-2.5">
+            <History className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="space-y-0.5 text-sm">
+              <p className="font-medium">
+                Historical comparison data isn’t available yet for{" "}
+                {missingHistory.join(", ")}.
+              </p>
+              <p className="text-muted-foreground">
+                {missingHistory.length === 1
+                  ? "This competitor has"
+                  : "These competitors have"}{" "}
+                been added to your selection — historical charts will appear
+                once their data is fetched.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmFetch(true)}
+            disabled={refreshing}
+            className="shrink-0"
+          >
+            {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+            {refreshing ? "Fetching…" : "Fetch history"}
+          </Button>
+        </div>
+      )}
 
       {view === "overlap" ? (
         <CompetitorGapOverlap
@@ -856,9 +1071,10 @@ export default function CompetitiveStrategyScreen() {
               className={
                 expanded
                   ? "fixed inset-0 z-50 grid content-center gap-6 overflow-auto bg-background p-6 lg:grid-cols-[minmax(0,1fr)_18rem]"
-                  : "grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]"
+                  : "relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]"
               }
             >
+              <LoadingOverlay show={mrPending} />
               {expanded && (
                 <button
                   type="button"
@@ -993,6 +1209,29 @@ export default function CompetitiveStrategyScreen() {
           </CardContent>
         </Card>
       )}
+
+      {/* Paid fetch confirm — history for competitors missing recent data. */}
+      <ConfirmDialog
+        open={confirmFetch}
+        onOpenChange={setConfirmFetch}
+        tone="default"
+        icon={<History className="size-5" />}
+        title="Fetch competitor history?"
+        description="This pulls the last 12 months of estimated traffic and ranking-keyword history, then fills the charts. Only domains without stored history are fetched — anything already saved is reused."
+        details={
+          <p className="text-muted-foreground">
+            {missingHistory.length > 0
+              ? `Fetches only ${missingHistory.join(", ")} (the domain${missingHistory.length === 1 ? "" : "s"} missing history).`
+              : "Fetches any compared domains missing recent data."}{" "}
+            This may take a few moments.
+          </p>
+        }
+        confirmLabel="Fetch history"
+        onConfirm={() =>
+          // Only the domains missing history (force=false → stored data reused).
+          refreshAnalyticsAsync(false, missingHistory.length > 0 ? missingHistory : undefined)
+        }
+      />
     </div>
   )
 }

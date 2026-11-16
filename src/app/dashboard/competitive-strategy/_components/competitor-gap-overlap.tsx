@@ -13,6 +13,8 @@
 import Link from "next/link"
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
+import { Tooltip } from "@base-ui/react/tooltip"
+import { Filter, X } from "lucide-react"
 
 import { Favicon } from "@/app/dashboard/competitors/_components/favicon"
 import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
@@ -20,9 +22,60 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover"
+import { LoadingOverlay } from "@/components/ui/loading-overlay"
+import {
   opportunityApi, type AnalyticsCountry, type GapBucket, type GapKeywordRow,
   type KeywordOverlap,
 } from "@/lib/api/opportunity"
+
+// Our-position and keyword-difficulty are filtered as ranges (value -> [min,max]).
+const POS_RANGES: Record<string, [number | null, number | null]> = {
+  "": [null, null],
+  "1-3": [1, 3],
+  "4-10": [4, 10],
+  "11-20": [11, 20],
+  "21-50": [21, 50],
+  "51+": [51, null],
+}
+const KD_RANGES: Record<string, [number | null, number | null]> = {
+  "": [null, null],
+  "0-29": [0, 29],
+  "30-69": [30, 69],
+  "70-100": [70, 100],
+}
+// SERP features offered as a filter (values match the stored feature keys).
+const SERP_FEATURES: { value: string; label: string }[] = [
+  { value: "featured_snippet", label: "Featured snippet" },
+  { value: "people_also_ask", label: "People also ask" },
+  { value: "ai_overview", label: "AI overview" },
+  { value: "local_pack", label: "Local pack" },
+  { value: "image", label: "Image pack" },
+  { value: "video", label: "Video" },
+  { value: "shopping", label: "Shopping" },
+  { value: "knowledge_graph", label: "Knowledge panel" },
+  { value: "sitelinks", label: "Sitelinks" },
+  { value: "top_stories", label: "Top stories" },
+  { value: "reviews", label: "Reviews" },
+]
+const INTENTS: { value: string; label: string }[] = [
+  { value: "all", label: "Any intent" },
+  { value: "informational", label: "Informational" },
+  { value: "navigational", label: "Navigational" },
+  { value: "commercial", label: "Commercial" },
+  { value: "transactional", label: "Transactional" },
+]
+
+/** Brand token from a domain host (first label, e.g. drishtiias.com → drishtiias). */
+function brandTokenOf(domain: string | null | undefined): string {
+  const host = (domain ?? "")
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split(/[/?#\s]/)[0]
+  return host.split(".")[0] ?? ""
+}
 
 const OVERLAP = "var(--chart-2)"
 const GAP = "var(--chart-4)"
@@ -31,6 +84,17 @@ const VENN = ["var(--chart-1)", "var(--chart-3)", "var(--chart-5)"]
 
 const fmtNum = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : `${n}`
+
+/** Blue heat-map background for a position cell — the stronger the rank (lower
+ * number), the deeper the theme blue. Blank for no run / not ranking. */
+function heatBg(pos: number | null, hasRun: boolean): string {
+  if (!hasRun || pos == null) return ""
+  if (pos <= 3) return "bg-primary/25"
+  if (pos <= 10) return "bg-primary/[0.18]"
+  if (pos <= 20) return "bg-primary/[0.12]"
+  if (pos <= 50) return "bg-primary/[0.06]"
+  return "bg-primary/[0.03]"
+}
 
 const BUCKET_META: Record<GapBucket, { label: string; hint: string }> = {
   missing: { label: "Missing", hint: "They rank, you don't — new content to create." },
@@ -114,6 +178,65 @@ function PosCell({ pos, traffic, hasRun }: { pos: number | null; traffic?: numbe
   )
 }
 
+/** How strong a position is — drives the heat shade and the tooltip wording. */
+function strengthLabel(pos: number | null): string {
+  if (pos == null) return ""
+  if (pos <= 3) return "Top 3 · very strong"
+  if (pos <= 10) return "Top 10 · strong"
+  if (pos <= 20) return "Page 2 (11–20)"
+  if (pos <= 50) return "Ranking (21–50)"
+  return "Low (50+)"
+}
+
+/** A heat-map position cell with a hover tooltip explaining what the box means:
+ * which domain, the keyword, the rank + its strength, and the est. traffic. */
+function HeatCell({
+  domain, isYou, keyword, pos, traffic, hasRun,
+}: {
+  domain: string
+  isYou: boolean
+  keyword: string
+  pos: number | null
+  traffic: number | null
+  hasRun: boolean
+}) {
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger
+        render={<span className="inline-flex cursor-help" />}
+        aria-label={`${isYou ? "Your site" : domain} position for ${keyword}`}
+      >
+        <PosCell pos={pos} traffic={traffic} hasRun={hasRun} />
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Positioner sideOffset={6} className="z-50">
+          <Tooltip.Popup className="max-w-64 rounded-lg border border-border bg-popover px-3 py-2 text-left text-xs leading-relaxed text-popover-foreground shadow-md">
+            <p className="font-semibold">{isYou ? "Your site" : domain}</p>
+            <p className="truncate text-muted-foreground" title={keyword}>{keyword}</p>
+            <p className="mt-1">
+              {!hasRun ? (
+                "No keyword data fetched for this domain yet."
+              ) : pos == null ? (
+                isYou ? "You don’t rank for this keyword." : "Doesn’t rank for this keyword."
+              ) : (
+                <>
+                  Ranks <span className="font-semibold">#{pos}</span> — {strengthLabel(pos)}
+                </>
+              )}
+            </p>
+            {hasRun && pos != null && traffic != null && traffic > 0 && (
+              <p className="text-muted-foreground">≈ {fmtNum(Math.round(traffic))} visits/mo from this keyword</p>
+            )}
+            {hasRun && pos != null && (
+              <p className="mt-1 text-[11px] text-muted-foreground/80">Deeper blue = stronger position.</p>
+            )}
+          </Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  )
+}
+
 export function CompetitorGapOverlap({
   competitors,
   market,
@@ -126,19 +249,75 @@ export function CompetitorGapOverlap({
   search?: string
 }) {
   const workspaceId = useActiveWorkspace()?.id ?? null
-  const domainId = useActiveDomain()?.id ?? null
+  const activeDomain = useActiveDomain()
+  const domainId = activeDomain?.id ?? null
   const ready = Boolean(workspaceId && domainId)
   const wid = workspaceId ?? ""
   const did = domainId ?? ""
   const compsKey = [...competitors].sort().join(",")
+  const brandTerm = React.useMemo(
+    () => brandTokenOf(activeDomain?.domain),
+    [activeDomain],
+  )
 
   const [bucket, setBucket] = React.useState<GapBucket>("missing")
   const [kwQuery, setKwQuery] = React.useState("")
   const [minVolume, setMinVolume] = React.useState(0)
+  // Advanced (BrightEdge-style) filters — all backed by stored gap-row data.
+  const [contains, setContains] = React.useState("")
+  const [excludes, setExcludes] = React.useState("")
+  const [serpFeature, setSerpFeature] = React.useState("")
+  const [posRange, setPosRange] = React.useState("")
+  const [kdRange, setKdRange] = React.useState("")
+  const [brand, setBrand] = React.useState<"all" | "brand" | "non_brand">("all")
+  const [intent, setIntent] = React.useState("all")
   const [page, setPage] = React.useState(1)
   const [exporting, setExporting] = React.useState(false)
   // Any filter change resets to the first page.
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1) }
+
+  const [posMin, posMax] = POS_RANGES[posRange] ?? [null, null]
+  const [kdMin, kdMax] = KD_RANGES[kdRange] ?? [null, null]
+  // What the gap query actually sends for the advanced filters (one object so
+  // the query key, the fetch and the CSV export stay in sync).
+  const advanced = {
+    contains: contains.trim(),
+    excludes: excludes.trim(),
+    serpFeature,
+    posMin,
+    posMax,
+    kdMin,
+    kdMax,
+    brand,
+    brandTerm,
+    intent,
+  }
+  // Active-filter chips (remove individually, or Reset all).
+  const activeFilters: { key: string; label: string; clear: () => void }[] = []
+  if (advanced.contains)
+    activeFilters.push({ key: "contains", label: `contains “${advanced.contains}”`, clear: () => reset(setContains)("") })
+  if (advanced.excludes)
+    activeFilters.push({ key: "excludes", label: `excludes “${advanced.excludes}”`, clear: () => reset(setExcludes)("") })
+  if (serpFeature)
+    activeFilters.push({ key: "serp", label: SERP_FEATURES.find((f) => f.value === serpFeature)?.label ?? serpFeature, clear: () => reset(setSerpFeature)("") })
+  if (posRange)
+    activeFilters.push({ key: "pos", label: `Your position ${posRange}`, clear: () => reset(setPosRange)("") })
+  if (kdRange)
+    activeFilters.push({ key: "kd", label: `Difficulty ${kdRange}`, clear: () => reset(setKdRange)("") })
+  if (brand !== "all")
+    activeFilters.push({ key: "brand", label: brand === "brand" ? "Brand keywords" : "Non-brand keywords", clear: () => reset(setBrand)("all") })
+  if (intent !== "all")
+    activeFilters.push({ key: "intent", label: INTENTS.find((i) => i.value === intent)?.label ?? intent, clear: () => reset(setIntent)("all") })
+  const resetAll = () => {
+    setContains("")
+    setExcludes("")
+    setSerpFeature("")
+    setPosRange("")
+    setKdRange("")
+    setBrand("all")
+    setIntent("all")
+    setPage(1)
+  }
 
   const summary = useQuery({
     queryKey: ["competitor-gap-summary", wid, did, market, compsKey],
@@ -151,9 +330,19 @@ export function CompetitorGapOverlap({
     enabled: ready && competitors.length > 0,
   })
   const gapKwQ = useQuery({
-    queryKey: ["gap-keywords", wid, did, market, compsKey, bucket, kwQuery, minVolume, page],
+    queryKey: [
+      "gap-keywords", wid, did, market, compsKey, bucket, kwQuery, minVolume,
+      advanced.contains, advanced.excludes, advanced.serpFeature,
+      advanced.posMin, advanced.posMax, advanced.kdMin, advanced.kdMax,
+      advanced.brand, advanced.intent, page,
+    ],
     queryFn: () => opportunityApi.gapKeywords(wid, did, {
-      country: market, competitors, bucket, q: kwQuery, minVolume, page, pageSize: 20,
+      country: market, competitors, bucket, q: kwQuery, minVolume,
+      contains: advanced.contains, excludes: advanced.excludes,
+      serpFeature: advanced.serpFeature, posMin: advanced.posMin, posMax: advanced.posMax,
+      kdMin: advanced.kdMin, kdMax: advanced.kdMax,
+      brand: advanced.brand, brandTerm: advanced.brandTerm, intent: advanced.intent,
+      page, pageSize: 20,
     }),
     enabled: ready && competitors.length > 0,
     placeholderData: (prev) => prev,
@@ -163,7 +352,12 @@ export function CompetitorGapOverlap({
     setExporting(true)
     try {
       const all = await opportunityApi.gapKeywords(wid, did, {
-        country: market, competitors, bucket, q: kwQuery, minVolume, page: 1, pageSize: 1000,
+        country: market, competitors, bucket, q: kwQuery, minVolume,
+        contains: advanced.contains, excludes: advanced.excludes,
+        serpFeature: advanced.serpFeature, posMin: advanced.posMin, posMax: advanced.posMax,
+        kdMin: advanced.kdMin, kdMax: advanced.kdMax,
+        brand: advanced.brand, brandTerm: advanced.brandTerm, intent: advanced.intent,
+        page: 1, pageSize: 1000,
       })
       const comps = all.columns.filter((c) => !c.is_you).map((c) => c.domain)
       const head = ["Keyword", "Bucket", "Volume", "KD", "CPC", "Intent", "You",
@@ -407,22 +601,160 @@ export function CompetitorGapOverlap({
               value={kwQuery}
               onChange={(e) => reset(setKwQuery)(e.target.value)}
               placeholder="Search keywords…"
-              className="h-9 w-full max-w-xs"
+              className="h-9 w-full max-w-xs bg-card"
             />
             <select
               value={minVolume}
               onChange={(e) => reset(setMinVolume)(Number(e.target.value))}
-              className="h-9 rounded-lg border border-border bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+              className="h-9 rounded-lg border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <option value={0}>All volumes</option>
               <option value={100}>≥ 100/mo</option>
               <option value={1000}>≥ 1K/mo</option>
               <option value={10000}>≥ 10K/mo</option>
             </select>
+
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-2 text-sm font-medium aria-expanded:border-primary"
+                  >
+                    <Filter className="size-4 text-muted-foreground" />
+                    All filters
+                    {activeFilters.length > 0 && (
+                      <span className="rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">
+                        {activeFilters.length}
+                      </span>
+                    )}
+                  </button>
+                }
+              />
+              <PopoverContent align="start" className="w-80 p-4">
+                <p className="mb-3 text-sm font-semibold">Filter keywords</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Contains</span>
+                      <Input value={contains} onChange={(e) => reset(setContains)(e.target.value)} placeholder="e.g. upsc" className="h-9 bg-card" />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Does not contain</span>
+                      <Input value={excludes} onChange={(e) => reset(setExcludes)(e.target.value)} placeholder="e.g. pdf" className="h-9 bg-card" />
+                    </label>
+                  </div>
+
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Keywords</span>
+                    <select
+                      value={brand}
+                      onChange={(e) => reset(setBrand)(e.target.value as "all" | "brand" | "non_brand")}
+                      className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <option value="all">Brand &amp; non-brand</option>
+                      <option value="brand" disabled={!brandTerm}>Brand only{brandTerm ? ` (${brandTerm})` : ""}</option>
+                      <option value="non_brand" disabled={!brandTerm}>Non-brand only</option>
+                    </select>
+                  </label>
+
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Search intent</span>
+                    <select
+                      value={intent}
+                      onChange={(e) => reset(setIntent)(e.target.value)}
+                      className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      {INTENTS.map((i) => (
+                        <option key={i.value} value={i.value}>{i.label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Your position</span>
+                      <select
+                        value={posRange}
+                        onChange={(e) => reset(setPosRange)(e.target.value)}
+                        className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        <option value="">Any position</option>
+                        {Object.keys(POS_RANGES).filter(Boolean).map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Difficulty (KD)</span>
+                      <select
+                        value={kdRange}
+                        onChange={(e) => reset(setKdRange)(e.target.value)}
+                        className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        <option value="">Any KD</option>
+                        {Object.keys(KD_RANGES).filter(Boolean).map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">SERP feature</span>
+                    <select
+                      value={serpFeature}
+                      onChange={(e) => reset(setSerpFeature)(e.target.value)}
+                      className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <option value="">Any SERP feature</option>
+                      {SERP_FEATURES.map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {activeFilters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={resetAll}
+                      className="w-full rounded-lg border border-border py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      Reset all filters
+                    </button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {activeFilters.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={resetAll} className="text-muted-foreground">
+                Reset all
+              </Button>
+            )}
           </div>
 
-          {/* Table. */}
-          {gapKwQ.isLoading && !gap ? (
+          {/* Active filter chips. */}
+          {activeFilters.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {activeFilters.map((f) => (
+                <span
+                  key={f.key}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground"
+                >
+                  {f.label}
+                  <button type="button" onClick={f.clear} aria-label={`Clear ${f.label}`} className="hover:text-foreground">
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Table — a blurred overlay covers it while filtered results reload. */}
+          <div className="relative">
+            <LoadingOverlay show={gapKwQ.isFetching && !!gap} label="Updating results…" />
+            {gapKwQ.isLoading && !gap ? (
             <p className="py-10 text-center text-sm text-muted-foreground">Loading keywords…</p>
           ) : krows.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
@@ -490,20 +822,36 @@ export function CompetitorGapOverlap({
                       <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">
                         {r.cpc != null ? `$${r.cpc.toFixed(2)}` : "—"}
                       </td>
-                      {columns.map((c) => (
-                        <td key={c.domain} className="px-2 py-2 text-right">
-                          {c.is_you
-                            ? <PosCell pos={r.our_position} traffic={r.our_traffic} hasRun={c.has_run} />
-                            : <PosCell pos={r.competitors[c.domain]?.position ?? null}
-                                traffic={r.competitors[c.domain]?.traffic} hasRun={c.has_run} />}
-                        </td>
-                      ))}
+                      {columns.map((c) => {
+                        const pos = c.is_you
+                          ? r.our_position
+                          : (r.competitors[c.domain]?.position ?? null)
+                        const traffic = c.is_you
+                          ? r.our_traffic
+                          : (r.competitors[c.domain]?.traffic ?? null)
+                        return (
+                          <td
+                            key={c.domain}
+                            className={`px-2 py-2 text-right ${heatBg(pos, c.has_run)}`}
+                          >
+                            <HeatCell
+                              domain={c.domain}
+                              isYou={c.is_you}
+                              keyword={r.keyword}
+                              pos={pos}
+                              traffic={traffic}
+                              hasRun={c.has_run}
+                            />
+                          </td>
+                        )
+                      })}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
+            )}
+          </div>
 
           {/* Pagination. */}
           {pageInfo && pageInfo.total > 0 && (
