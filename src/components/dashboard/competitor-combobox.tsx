@@ -42,13 +42,22 @@ export function normalizeDomain(raw: string): string {
 export function CompetitorCombobox({
   options, onPick, placeholder = "Type or pick a competitor, e.g. drishtiias.com",
   actionLabel, actionIcon, actionVariant = "outline", disabled = false, busy = false,
-  className, clearOnPick = false, value, formId,
+  className, clearOnPick = false, value, formId, addOnSelect = true, selectOnly = false,
+  onTextChange,
 }: {
   options: CompetitorOption[]
   onPick: (domain: string) => void
   placeholder?: string
   /** id on the <form>, so an external submit button can trigger it (form=…). */
   formId?: string
+  /** Reports the current field text (so an external Add button can enable/disable). */
+  onTextChange?: (text: string) => void
+  /** When false, choosing a suggestion only FILLS the field; the submit button
+   * (or Enter) then adds it. Default true keeps the one-click behaviour. */
+  addOnSelect?: boolean
+  /** When true, ONLY a domain present in `options` can be submitted — a typed
+   * value that matches nothing is rejected (search-and-select, no free entry). */
+  selectOnly?: boolean
   /** Submit button label. Omit for no button: picking a suggestion or pressing
    * Enter on a typed domain already submits. */
   actionLabel?: string
@@ -71,6 +80,12 @@ export function CompetitorCombobox({
     setPrevSelected(selected)
     setText(selected)
   }
+  // Report the current text to the parent (for an external Add button's enabled
+  // state). Parents pass a stable setter, so this won't loop.
+  React.useEffect(() => {
+    onTextChange?.(text)
+  }, [text, onTextChange])
+
   const listRef = React.useRef<HTMLDivElement>(null)
   const justFocused = React.useRef(false)
   const byDomain = React.useMemo(() => new Map(options.map((o) => [o.domain, o])), [options])
@@ -86,9 +101,14 @@ export function CompetitorCombobox({
     return [...groups].map(([value, list]) => ({ value, items: list }))
   }, [options, grouped, byDomain])
 
+  const isKnown = (domain: string) =>
+    options.some((o) => normalizeDomain(o.domain) === domain)
+
   function pick(value: string) {
     const domain = normalizeDomain(value)
     if (!domain || !domain.includes(".")) return
+    // Search-and-select: never submit a domain that isn't one of the options.
+    if (selectOnly && !isKnown(domain)) return
     onPick(domain)
     setText(clearOnPick ? "" : domain)
   }
@@ -137,7 +157,7 @@ export function CompetitorCombobox({
         }}
         onValueChange={(value, details) => {
           setText(value)
-          if (details.reason === "item-press") pick(value)
+          if (details.reason === "item-press" && addOnSelect) pick(value)
         }}
       >
         <div className="relative min-w-0 flex-1">
@@ -161,7 +181,9 @@ export function CompetitorCombobox({
             <Autocomplete.Popup className="w-[max(var(--anchor-width),20rem)] max-w-[var(--available-width)] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md">
               <Autocomplete.Empty>
                 <p className="px-3 py-2.5 text-xs text-muted-foreground">
-                  {text.trim() ? <>Press Enter to open <strong className="text-foreground">{normalizeDomain(text)}</strong></> : "Type a domain"}
+                  {selectOnly
+                    ? (text.trim() ? "No matching competitor — pick one from the list." : "Search your competitors")
+                    : (text.trim() ? <>Press Enter to open <strong className="text-foreground">{normalizeDomain(text)}</strong></> : "Type a domain")}
                 </p>
               </Autocomplete.Empty>
               <Autocomplete.List ref={listRef} className="max-h-[min(20rem,var(--available-height))] overflow-y-auto overscroll-contain p-1 outline-none empty:p-0">

@@ -58,6 +58,7 @@ import {
   type CompetitorOption,
 } from "@/components/dashboard/competitor-combobox"
 import { SearchInput } from "@/components/ui/search-input"
+import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { ColumnHelp, HeaderWithHelp } from "@/components/ui/column-help"
 import { COLUMN_HELP } from "@/lib/column-help"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -85,12 +86,6 @@ const SCOPES: { id: RankedScope; label: string; hint: string }[] = [
 // Scopes offered in the UI. "all" is intentionally omitted to steer users to the
 // two cheap, high-value scopes (Top 100 + Relevant); the backend still supports it.
 const VISIBLE_SCOPES = SCOPES.filter((s) => s.id !== "all")
-const STOP_REASON: Record<string, string> = {
-  complete: "complete",
-  cap_reached: "stopped at the per-load limit",
-  // The provider returned no new rows (e.g. repeated pages) — stop early.
-  no_new_keywords: "no more new keywords",
-}
 // Prices are not shown in the UI. Format if needed: n > 0 ? `~$${n.toFixed(n < 0.1 ? 3 : 2)}` : "free"
 
 const PAGE_SIZE = 15
@@ -534,7 +529,7 @@ export function RankedKeywordsCard({
             ) : (
               <CloudDownload className="size-4" />
             )}
-            {hasRows ? "Refresh" : "Load keywords"}
+            {hasRows ? "Refresh" : "Get keywords"}
           </Button>
         )
       }
@@ -584,7 +579,7 @@ export function RankedKeywordsCard({
         disabled
         title="Loading new data is turned off right now"
       >
-        <RefreshCw className="size-4" /> {hasRows ? "Refresh" : "Load keywords"}
+        <RefreshCw className="size-4" /> {hasRows ? "Refresh" : "Get keywords"}
       </Button>
     )
   }
@@ -747,11 +742,6 @@ export function RankedKeywordsCard({
                       {compact(storedHere.items_count)} {scopeLabel} keywords
                     </span>
                     · updated <FormattedDate value={storedHere.fetched_at} />
-                    {data.scope === activeScope &&
-                    data.stop_reason &&
-                    data.stop_reason !== "complete"
-                      ? ` · ${STOP_REASON[data.stop_reason]}`
-                      : ""}
                   </p>
                 ) : (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -759,7 +749,7 @@ export function RankedKeywordsCard({
                     <span className="font-medium text-amber-700 dark:text-amber-400">
                       Not loaded yet
                     </span>
-                    · no {scopeLabel} keywords for this domain
+                    · No {scopeLabel.toLowerCase()} keywords for this domain
                   </p>
                 )}
               </div>
@@ -864,8 +854,9 @@ export function RankedKeywordsCard({
                     <strong className="text-foreground">
                       {estimate.matching_count.toLocaleString()}
                     </strong>{" "}
-                    {activeScope === "relevant" ? "relevant " : ""}keywords match
-                    for <strong className="text-foreground">{selected}</strong>.
+                    {activeScope === "relevant" ? "relevant " : ""}keywords
+                    match for{" "}
+                    <strong className="text-foreground">{selected}</strong>.
                     We&apos;ll load{" "}
                     <strong className="text-foreground">
                       {estimate.to_fetch.toLocaleString()}
@@ -906,47 +897,47 @@ export function RankedKeywordsCard({
             />
 
             {!hasRows ? (
-                <div className="border-t border-border px-6 py-10 text-center">
-                  <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <Inbox className="size-5" />
-                  </div>
-                  <p className="font-medium">
-                    No {scopeLabel} keywords saved for {selected} yet
-                  </p>
-                  <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                    {activeScope === "top"
-                      ? "Load its top keywords to see positions, ranking pages, traffic — and which ones you're missing."
-                      : "Load this data to see it here."}
-                  </p>
-                  <div className="mt-4 flex justify-center">
-                    {fetchAction(true)}
-                  </div>
-                  {actionNote && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {actionNote}
-                    </p>
-                  )}
-                  {data.stored_scopes.some((x) => x.scope !== "all") && (
-                    <p className="mt-4 text-xs text-muted-foreground">
-                      Already saved:{" "}
-                      {data.stored_scopes
-                        .filter((x) => x.scope !== "all")
-                        .map((x, i) => (
-                          <React.Fragment key={x.scope}>
-                            {i > 0 && " · "}
-                            <button
-                              type="button"
-                              onClick={() => pickScope(x.scope)}
-                              className="font-medium text-primary hover:underline"
-                            >
-                              {SCOPES.find((sc) => sc.id === x.scope)?.label} (
-                              {compact(x.items_count)})
-                            </button>
-                          </React.Fragment>
-                        ))}
-                    </p>
-                  )}
+              <div className="border-t border-border px-6 py-10 text-center">
+                <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <Inbox className="size-5" />
                 </div>
+                <p className="font-medium">
+                  No {scopeLabel} keywords saved for {selected} yet
+                </p>
+                <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                  {activeScope === "top"
+                    ? "Load its top keywords to see positions, ranking pages, traffic — and which ones you're missing."
+                    : "Load this data to see it here."}
+                </p>
+                <div className="mt-4 flex justify-center">
+                  {fetchAction(true)}
+                </div>
+                {actionNote && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {actionNote}
+                  </p>
+                )}
+                {data.stored_scopes.some((x) => x.scope !== "all") && (
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Already saved:{" "}
+                    {data.stored_scopes
+                      .filter((x) => x.scope !== "all")
+                      .map((x, i) => (
+                        <React.Fragment key={x.scope}>
+                          {i > 0 && " · "}
+                          <button
+                            type="button"
+                            onClick={() => pickScope(x.scope)}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {SCOPES.find((sc) => sc.id === x.scope)?.label} (
+                            {compact(x.items_count)})
+                          </button>
+                        </React.Fragment>
+                      ))}
+                  </p>
+                )}
+              </div>
             ) : (
               <>
                 {/* Keywords / Top pages */}
@@ -1001,58 +992,44 @@ export function RankedKeywordsCard({
                         </button>
                       </div>
                     )}
-                    {/* Filters */}
-                    <div className="flex flex-wrap items-center gap-2 border-t border-border px-6 py-3">
+                    {/* Filters — SearchInput + SegmentedTabs (pills): the
+                        dashboard-wide toolbar pattern, so typography / theme
+                        match the rest of the app. */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-t border-border px-6 py-3">
                       <SearchInput
                         value={q}
                         onValueChange={setQ}
                         placeholder="Filter keywords…"
-                        className="min-w-[180px] flex-1"
+                        className="min-w-[200px] flex-1 sm:max-w-xs"
                       />
-                      <div className="flex flex-wrap gap-1">
-                        {BUCKETS.map((b) => (
-                          <button
-                            key={b.id}
-                            type="button"
-                            onClick={() => setBucket(b.id)}
-                            className={cn(
-                              "rounded-md px-2 py-1 text-xs",
-                              bucket === b.id
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-muted-foreground hover:text-foreground",
-                            )}
-                          >
-                            {b.label}
-                          </button>
-                        ))}
-                      </div>
+                      <SegmentedTabs<(typeof BUCKETS)[number]["id"]>
+                        value={bucket}
+                        onChange={setBucket}
+                        label="Position"
+                        items={BUCKETS.map((b) => ({
+                          value: b.id,
+                          label: b.label,
+                        }))}
+                      />
                       {!data.is_you && (
-                        <div className="flex gap-1">
-                          {(
-                            [
-                              ["all", "All"],
-                              ["gap", `You don't rank (${data.summary.gap})`],
-                              [
-                                "common",
-                                `You also rank (${data.summary.common})`,
-                              ],
-                            ] as const
-                          ).map(([id, label]) => (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => setShow(id)}
-                              className={cn(
-                                "rounded-md px-2 py-1 text-xs",
-                                show === id
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted text-muted-foreground hover:text-foreground",
-                              )}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
+                        <SegmentedTabs<"all" | "gap" | "common">
+                          value={show}
+                          onChange={setShow}
+                          label="Keyword overlap"
+                          items={[
+                            { value: "all", label: "All" },
+                            {
+                              value: "gap",
+                              label: "You don't rank",
+                              count: data.summary.gap,
+                            },
+                            {
+                              value: "common",
+                              label: "You also rank",
+                              count: data.summary.common,
+                            },
+                          ]}
+                        />
                       )}
                     </div>
 

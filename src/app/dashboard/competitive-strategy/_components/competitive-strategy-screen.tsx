@@ -10,8 +10,8 @@
  *  - the Gap & Overlap tab shows the real keyword overlap vs gap.
  *
  * Data is DB-only (no paid call here); new analytics are fetched from the
- * Competitor Keywords page. The compare field, filters, date-range and the
- * export/columns/expand controls are presentational (not yet wired).
+ * Competitor Keywords page. The metric tabs, date range, search, CSV export
+ * and full-screen expand are all wired to the live data below.
  */
 import * as React from "react"
 import Link from "next/link"
@@ -138,12 +138,74 @@ function MarketFlag({ code }: { code: AnalyticsCountry }) {
 // traffic); the user can remove any or add their own with the Add field.
 const DEFAULT_COMPARE = 4
 
-/** The last 12 months (today minus one year → today) — the date picker's default. */
-function lastYearRange(): DateRange {
+/** The last N months (today minus N months → today) for the date presets. */
+function lastMonthsRange(months: number): DateRange {
   const to = new Date()
   const from = new Date()
-  from.setFullYear(from.getFullYear() - 1)
+  from.setMonth(from.getMonth() - months)
   return { from, to }
+}
+
+// Date-range presets (GSC-style). Default is the last 6 months.
+const DATE_PRESETS = [
+  { id: "6m", label: "Last 6 months", months: 6 },
+  { id: "12m", label: "Last 12 months", months: 12 },
+] as const
+type DatePreset = (typeof DATE_PRESETS)[number]["id"] | "custom"
+
+/** shadcn-style single date picker: a button showing the date that opens a
+ *  calendar popover. Used for the Custom "Start date" / "End date" fields. */
+function DatePicker({
+  value,
+  onChange,
+  min,
+  max,
+  placeholder,
+}: {
+  value?: Date
+  onChange: (d: Date | undefined) => void
+  min?: Date
+  max?: Date
+  placeholder: string
+}) {
+  const disabled = [
+    ...(min ? [{ before: min }] : []),
+    ...(max ? [{ after: max }] : []),
+  ]
+  // Open on a month that actually has selectable days (clamp into [min, max]),
+  // so a value that sits outside the window never shows an all-disabled month.
+  const openMonth = value
+    ? min && value < min
+      ? min
+      : max && value > max
+        ? max
+        : value
+    : (max ?? min)
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-2 font-normal"
+          >
+            <CalendarIcon className="size-4 shrink-0 text-muted-foreground" />
+            {value ? fmtDay(value) : <span className="text-muted-foreground">{placeholder}</span>}
+          </Button>
+        }
+      />
+      <PopoverContent align="start" className="w-auto p-0">
+        <Calendar
+          mode="single"
+          selected={value}
+          onSelect={onChange}
+          defaultMonth={openMonth}
+          disabled={disabled.length ? disabled : undefined}
+        />
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 /** Normalize a typed domain/URL to a bare host (drops scheme, www, path). */
@@ -164,6 +226,9 @@ function fmtMonth(iso: string): string {
 function fmtMonthYear(iso: string): string {
   const d = new Date(iso + "T00:00:00")
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" })
+}
+function fmtDay(d: Date): string {
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
 /** Local (not UTC) yyyy-mm-dd, to compare a Date against stored ISO day strings. */
 function toISODate(d: Date): string {
@@ -214,9 +279,12 @@ export default function CompetitiveStrategyScreen() {
   // Which domains are in the comparison (null = default top set). The compare
   // bar drives the trend + donut below it.
   const [selected, setSelected] = React.useState<string[] | null>(null)
-  // Filters (narrow what the charts show). Reset clears all of these.
+  // Filters (narrow what the charts show): free-text search + date range.
   const [search, setSearch] = React.useState("")
-  const [range, setRange] = React.useState<DateRange | undefined>(() => lastYearRange())
+  // Current text in the Add-competitor field (drives the Add button's enabled state).
+  const [addText, setAddText] = React.useState("")
+  const [datePreset, setDatePreset] = React.useState<DatePreset>("6m")
+  const [range, setRange] = React.useState<DateRange | undefined>(() => lastMonthsRange(6))
   // Expand the chart + donut area to fill the screen (in-app overlay).
   const [expanded, setExpanded] = React.useState(false)
   React.useEffect(() => {
@@ -328,18 +396,9 @@ export default function CompetitiveStrategyScreen() {
     : chosen
   const selectedSet = new Set(effectiveSelected)
   const competitorDomains = effectiveSelected.filter((d) => d !== primaryHost)
-  const pickDomain = (d: string) => {
-    const h = normHost(d)
-    if (h && !effectiveSelected.includes(h))
-      setSelected([...effectiveSelected, h])
-  }
-  // Primary can never be removed; only competitors are removable.
-  const removeDomain = (d: string) => {
-    if (d === primaryHost) return
-    setSelected(effectiveSelected.filter((x) => x !== d))
-  }
 
-  // Options for the picker: your competitors / stored domains not already chosen.
+  // Known competitors for THIS website: stored analytics rows + its SERP
+  // footprint. The comparison only ever uses these — never an external domain.
   const knownDomains = new Map<string, CompetitorOption>()
   rows.forEach((r) =>
     knownDomains.set(r.domain, {
@@ -355,6 +414,24 @@ export default function CompetitiveStrategyScreen() {
   const addOptions = [...knownDomains.values()].filter(
     (o) => !selectedSet.has(o.domain),
   )
+  // The Add button is enabled only when the field holds a known competitor that
+  // isn't already compared (i.e. one the user actually selected from the list).
+  const canAddCompetitor =
+    !!normHost(addText) &&
+    knownDomains.has(normHost(addText)) &&
+    !selectedSet.has(normHost(addText))
+
+  const pickDomain = (d: string) => {
+    const h = normHost(d)
+    // Only this website's own competitors can be added — reject external domains.
+    if (h && knownDomains.has(h) && !effectiveSelected.includes(h))
+      setSelected([...effectiveSelected, h])
+  }
+  // Primary can never be removed; only competitors are removable.
+  const removeDomain = (d: string) => {
+    if (d === primaryHost) return
+    setSelected(effectiveSelected.filter((x) => x !== d))
+  }
 
   // --- Filters narrow which competitors + dates appear in the charts ---
   const q = search.trim().toLowerCase()
@@ -374,6 +451,20 @@ export default function CompetitiveStrategyScreen() {
         ? "Keyword Share"
         : "Volume Share"
   const allDates = history?.dates ?? []
+  // Selectable window for the date pickers: earliest stored month → today.
+  const minDate = allDates[0] ? new Date(allDates[0] + "T00:00:00") : undefined
+  const maxDate = new Date()
+  // Clamp a date into [minDate, maxDate].
+  const clampDate = (d: Date) =>
+    minDate && d < minDate ? minDate : d > maxDate ? maxDate : d
+  // Apply a preset, clamping its start into the available data window so the
+  // picker never lands on an all-disabled month (presets can reach before the
+  // first stored month).
+  const applyPreset = (p: (typeof DATE_PRESETS)[number]) => {
+    setDatePreset(p.id)
+    const r = lastMonthsRange(p.months)
+    setRange({ from: r.from ? clampDate(r.from) : r.from, to: r.to })
+  }
   const fromISO = range?.from ? toISODate(range.from) : null
   const toISO = range?.from ? toISODate(range.to ?? range.from) : null
   const dates = fromISO
@@ -456,11 +547,6 @@ export default function CompetitiveStrategyScreen() {
   const currentMarket =
     MARKET_OPTIONS.find((m) => m.code === market) ?? MARKET_OPTIONS[0]
   const enoughHistory = dates.length >= 2 && hasSeriesData
-  const calendarMonth =
-    range?.from ??
-    (allDates.length
-      ? new Date(allDates[allDates.length - 1] + "T00:00:00")
-      : undefined)
 
   // Export the active tab's series as CSV (one column per domain, one row/month).
   const exportCsv = () => {
@@ -494,8 +580,11 @@ export default function CompetitiveStrategyScreen() {
               formId="add-competitor"
               options={addOptions}
               onPick={pickDomain}
+              onTextChange={setAddText}
               clearOnPick
-              placeholder="Search competitors or enter a domain"
+              addOnSelect={false}
+              selectOnly
+              placeholder="Competitor to compare"
             />
 
             <DropdownMenu>
@@ -527,7 +616,13 @@ export default function CompetitiveStrategyScreen() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button type="submit" form="add-competitor" variant="default" className="shrink-0">
+            <Button
+              type="submit"
+              form="add-competitor"
+              variant="default"
+              disabled={!canAddCompetitor}
+              className="shrink-0 text-white disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-sky-400 disabled:hover:bg-sky-400 disabled:opacity-100"
+            >
               <Plus className="size-4" /> Add
             </Button>
           </div>
@@ -543,30 +638,33 @@ export default function CompetitiveStrategyScreen() {
                 </span>
               </div>
             )}
+            {competitorDomains.length > 0 && (
+              <span className="px-0.5 text-xs font-bold text-muted-foreground">
+                VS
+              </span>
+            )}
             {competitorDomains.map((d) => (
-              <React.Fragment key={d}>
-                <span className="px-0.5 text-xs font-bold text-muted-foreground">
-                  VS
-                </span>
-                <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium">
-                  <Link
-                    href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(d)}`}
-                    title={`View ${d} keywords`}
-                    className="flex min-w-0 items-center gap-2 hover:text-primary"
-                  >
-                    <Favicon domain={d} size={16} />
-                    <span className="truncate">{d}</span>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => removeDomain(d)}
-                    aria-label={`Remove ${d}`}
-                    className="shrink-0 rounded text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-              </React.Fragment>
+              <div
+                key={d}
+                className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium"
+              >
+                <Link
+                  href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(d)}`}
+                  title={`View ${d} keywords`}
+                  className="flex min-w-0 items-center gap-2 hover:text-primary"
+                >
+                  <Favicon domain={d} size={16} />
+                  <span className="truncate">{d}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => removeDomain(d)}
+                  aria-label={`Remove ${d}`}
+                  className="shrink-0 rounded text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
             ))}
             <span className="ml-1 text-xs text-muted-foreground">
               {competitorDomains.length} competitor
@@ -619,24 +717,68 @@ export default function CompetitiveStrategyScreen() {
                 </button>
               }
             />
-            <PopoverContent align="end" className="w-auto p-3">
-              <Calendar
-                mode="range"
-                selected={range}
-                onSelect={setRange}
-                defaultMonth={calendarMonth}
-                numberOfMonths={2}
-              />
-              <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+            <PopoverContent align="end" className="w-auto min-w-56 p-3">
+              <p className="mb-2 px-1 text-sm font-semibold">Date range</p>
+              <div className="space-y-0.5">
+                {DATE_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => applyPreset(p)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                  >
+                    <span
+                      className={`grid size-4 shrink-0 place-items-center rounded-full border ${datePreset === p.id ? "border-primary" : "border-input"}`}
+                    >
+                      {datePreset === p.id && (
+                        <span className="size-2 rounded-full bg-primary" />
+                      )}
+                    </span>
+                    {p.label}
+                  </button>
+                ))}
                 <button
                   type="button"
-                  onClick={() => setRange(lastYearRange())}
-                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                  onClick={() => setDatePreset("custom")}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
                 >
-                  Last 12 months
+                  <span
+                    className={`grid size-4 shrink-0 place-items-center rounded-full border ${datePreset === "custom" ? "border-primary" : "border-input"}`}
+                  >
+                    {datePreset === "custom" && (
+                      <span className="size-2 rounded-full bg-primary" />
+                    )}
+                  </span>
+                  Custom
                 </button>
-                <span className="text-xs text-muted-foreground">{rangeLabel}</span>
               </div>
+              {datePreset === "custom" && (
+                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Start date</span>
+                    <DatePicker
+                      value={range?.from}
+                      onChange={(d) => setRange({ from: d, to: range?.to })}
+                      min={minDate}
+                      max={range?.to ?? maxDate}
+                      placeholder="Start date"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">End date</span>
+                    <DatePicker
+                      value={range?.to}
+                      onChange={(d) => setRange({ from: range?.from, to: d })}
+                      min={range?.from ?? minDate}
+                      max={maxDate}
+                      placeholder="End date"
+                    />
+                  </div>
+                </div>
+              )}
+              <p className="mt-2 border-t border-border px-1 pt-2 text-xs text-muted-foreground">
+                {rangeLabel}
+              </p>
             </PopoverContent>
           </Popover>
 

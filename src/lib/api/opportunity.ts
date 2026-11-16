@@ -275,6 +275,58 @@ export interface CompetitorGapSummary {
   competitors: GapSummaryRow[]
 }
 
+/** One keyword's opportunity type vs the best competitor position. */
+export type GapBucket = "missing" | "weak" | "shared"
+
+/** A compared domain's column in the gap table (your domain first). */
+export interface GapColumn {
+  domain: string
+  is_you: boolean
+  has_run: boolean          // false = no stored ranked keywords -> blank cells + Fetch
+}
+export interface GapKeywordCell {
+  position: number | null
+  traffic: number | null    // est. monthly traffic this domain gets from the keyword
+}
+export interface GapKeywordRow {
+  keyword: string
+  bucket: GapBucket
+  search_volume: number
+  keyword_difficulty: number | null
+  cpc: number | null
+  intent: string | null
+  serp_features: string[]
+  our_position: number | null
+  our_traffic: number | null
+  competitors: Record<string, GapKeywordCell>   // competitor host -> its cell
+}
+/** One page of the keyword-level gap table (DB only, no paid call). */
+export interface GapKeywords {
+  has_our_run: boolean
+  bucket: GapBucket
+  counts: Record<string, number>   // keyword count per bucket (all pages)
+  columns: GapColumn[]
+  rows: GapKeywordRow[]
+  pagination: PageInfo | null
+}
+
+export interface GapVennSet {
+  domain: string
+  is_you: boolean
+  total: number             // keywords in this domain's set
+}
+export interface GapVennOverlap {
+  domains: string[]
+  count: number
+}
+/** Keyword-set overlap for a Venn of your domain + up to two competitors. */
+export interface KeywordOverlap {
+  has_our_run: boolean
+  sets: GapVennSet[]
+  overlaps: GapVennOverlap[]
+  triple: GapVennOverlap | null
+}
+
 function base(wid: string, did: string) {
   return `/api/workspaces/${wid}/domains/${did}/opportunity`
 }
@@ -344,6 +396,42 @@ export const opportunityApi = {
           return qs ? `?${qs}` : ""
         })(),
     ),
+
+  /** One page of the keyword-level gap table (missing/weak/shared), DB only. */
+  gapKeywords: (
+    wid: string, did: string,
+    opts: {
+      country?: AnalyticsCountry; competitors?: string[]; bucket?: GapBucket
+      minVolume?: number; intent?: string; q?: string
+      sort?: string; order?: "asc" | "desc"; page?: number; pageSize?: number
+    } = {},
+  ) => {
+    const params = new URLSearchParams()
+    if (opts.country) params.set("country", opts.country)
+    if (opts.competitors?.length) params.set("competitors", opts.competitors.join(","))
+    params.set("bucket", opts.bucket ?? "missing")
+    if (opts.minVolume) params.set("min_volume", String(opts.minVolume))
+    if (opts.intent && opts.intent !== "all") params.set("intent", opts.intent)
+    if (opts.q) params.set("q", opts.q)
+    params.set("sort", opts.sort ?? "search_volume")
+    params.set("order", opts.order ?? "desc")
+    params.set("page", String(opts.page ?? 1))
+    params.set("page_size", String(opts.pageSize ?? 20))
+    return apiClient.get<GapKeywords>(`${base(wid, did)}/strategy/gap-keywords?${params}`)
+  },
+
+  /** Keyword-set overlap for a Venn of your domain + up to two competitors (DB only). */
+  keywordOverlap: (
+    wid: string, did: string,
+    opts: { country?: AnalyticsCountry; competitors?: string[] } = {},
+  ) => {
+    const params = new URLSearchParams()
+    if (opts.country) params.set("country", opts.country)
+    if (opts.competitors?.length) params.set("competitors", opts.competitors.join(","))
+    const qs = params.toString()
+    return apiClient.get<KeywordOverlap>(
+      `${base(wid, did)}/strategy/keyword-overlap${qs ? `?${qs}` : ""}`)
+  },
 
   /** Fetches stale/missing metrics from DataForSEO (paid) and stores them. */
   refreshCompetitorAnalytics: (
