@@ -26,6 +26,10 @@ export {
   useSetActiveDomain,
 } from "@/hooks/dashboard/use-active-domain"
 export { useActiveMarket } from "@/hooks/dashboard/use-active-market"
+export {
+  useCompetitorSelection,
+  MAX_COMPETITORS,
+} from "@/hooks/dashboard/use-competitor-selection"
 export { useLogout } from "@/hooks/api/use-session"
 export { useRefreshWorkspaces } from "@/hooks/api/use-workspaces"
 
