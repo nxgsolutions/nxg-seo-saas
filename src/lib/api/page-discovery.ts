@@ -4,7 +4,7 @@ import { listParams, type ListParams, type Paged } from "./pagination"
 
 export interface DiscoveryRun {
   id: string | null
-  source: "sitemap" | "crawl" | "none" | "no_sitemap"
+  source: "sitemap" | "crawl" | "none" | "no_sitemap" | "shopify"
   sitemap_url: string | null
   status: "running" | "completed" | "partial" | "failed" | "cancelled"
   pages_found: number
@@ -42,12 +42,24 @@ export interface DiscoveredPage {
   content_score: number | null
   /** True when this page has saved editor edits. */
   edited: boolean
+  /** Set when the page was imported from a connected store (Shopify). */
+  external_source: "shopify" | null
+  external_type: "product" | "page" | null
+  external_id: string | null
+  external_handle: string | null
+  seo_title: string | null
+  seo_description: string | null
+  published: boolean | null
 }
 
 export interface PageFilters {
   type?: string
   status?: string
   indexable?: string
+  /** all | shopify | sitemap | crawl */
+  source?: string
+  /** all | product | page (Shopify items) */
+  externalType?: string
 }
 
 /** Editable content for one page (fetched on demand, cached server-side). */
@@ -65,6 +77,9 @@ export interface PageContent {
   score?: number | null
   fetched_at: string | null
   error: string | null
+  /** "shopify" when the page is linked to the connected store. */
+  external_source?: "shopify" | null
+  external_type?: "product" | "page" | null
 }
 
 /** The fields a user can save/update for a page's content. */
@@ -115,7 +130,10 @@ export const pageDiscoveryApi = {
   summary: (wid: string, did: string) => apiClient.get<PageDiscoverySummary>(`${base(wid, did)}/summary`),
   list: (wid: string, did: string, p: ListParams, filters: PageFilters = {}) =>
     apiClient.get<Paged<DiscoveredPage>>(base(wid, did), {
-      params: listParams(p, { type: filters.type, status: filters.status, indexable: filters.indexable }),
+      params: listParams(p, {
+        type: filters.type, status: filters.status, indexable: filters.indexable,
+        source: filters.source, external_type: filters.externalType,
+      }),
     }),
   // First open fetches the live page server-side (SSRF-guarded, with retries) and
   // caches it, which can take ~25s on a cold page — well past the default 15s GET

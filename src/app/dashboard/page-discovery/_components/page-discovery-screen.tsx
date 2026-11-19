@@ -19,9 +19,13 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
   Square,
 } from "lucide-react"
+import Link from "next/link"
+import { toast } from "sonner"
+import { errorMessage } from "@/lib/api/client"
 import type { ReactNode } from "react"
 import { usePageDiscoveryScreen } from "../_hooks/use-page-discovery-screen"
 import { TYPE_ORDER, typeMeta } from "../_lib/page-discovery-helpers"
@@ -98,7 +102,7 @@ export default function PageDiscoveryScreen() {
                   : "We read your sitemap first, then crawl the site if there isn’t one."}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {s.isRunning && (
                 <Button
                   variant="outline"
@@ -111,6 +115,25 @@ export default function PageDiscoveryScreen() {
                     <Square className="size-4" />
                   )}
                   Stop
+                </Button>
+              )}
+              {s.shopify && (
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    s.shopifySync.mutate(undefined, {
+                      onError: (err) => toast.error(errorMessage(err, "Could not start the Shopify import.")),
+                    })
+                  }
+                  disabled={s.isRunning || s.shopifySync.isPending}
+                  title={`Import products and pages from ${s.shopify.shop_name ?? s.shopify.shop}`}
+                >
+                  {s.shopifySync.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <ShoppingBag className="size-4" />
+                  )}
+                  Import from Shopify
                 </Button>
               )}
               <Button
@@ -131,6 +154,15 @@ export default function PageDiscoveryScreen() {
             </div>
           </div>
           <StatusArea screen={s} />
+          {!s.shopify && s.shopifyConfigured && s.canManage && !s.isRunning && (
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <ShoppingBag className="size-3.5" /> Using Shopify?
+              <Link href="/dashboard/settings" className="font-medium text-primary hover:underline">
+                Connect your store
+              </Link>
+              to import products and pages and publish SEO fixes directly.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -164,6 +196,7 @@ export default function PageDiscoveryScreen() {
             <DiscoveryTable
               wid={s.wid!}
               did={s.did!}
+              shopifyShop={s.shopify?.shop ?? null}
               running={s.isRunning}
               total={s.summary?.total ?? 0}
             />
@@ -297,7 +330,7 @@ function StatusArea({ screen: s }: { screen: Screen }) {
       <Banner
         tone="info"
         icon={<Loader2 className="size-5 animate-spin" />}
-        title="Scanning your site…"
+        title={s.status?.source === "shopify" ? "Importing from Shopify…" : "Scanning your site…"}
         text={
           found
             ? `Checked ${done.toLocaleString()} of ${found.toLocaleString()} pages.`
@@ -344,6 +377,26 @@ function StatusArea({ screen: s }: { screen: Screen }) {
         icon={<Square className="size-5" />}
         title="Scan stopped"
         text={`You stopped the scan.${s.status.pages_found ? ` We kept the ${s.status.pages_found.toLocaleString()} pages found so far.` : ""} Run it again whenever you're ready.`}
+      />
+    )
+  }
+  if (s.status.status === "failed" && s.status.source === "shopify") {
+    return (
+      <Banner
+        tone="warn"
+        icon={<AlertTriangle className="size-5" />}
+        title="Shopify import failed"
+        text="We couldn't read your store. Check the store is still connected in Settings → Integrations and try again."
+      />
+    )
+  }
+  if (s.status.status === "partial" && s.status.source === "shopify") {
+    return (
+      <Banner
+        tone="warn"
+        icon={<AlertTriangle className="size-5" />}
+        title="Imported — some pages not scored yet"
+        text={`All ${s.status.pages_found.toLocaleString()} products and pages were imported from Shopify, but your storefront began rate-limiting our reader, so ${(s.status.pages_found - (s.status.pages_enriched ?? 0)).toLocaleString()} aren't scored yet. Import again later to finish scoring.`}
       />
     )
   }
@@ -412,6 +465,16 @@ function StatusArea({ screen: s }: { screen: Screen }) {
           </Button>
         </div>
       </div>
+    )
+  }
+  if (s.status.source === "shopify") {
+    return (
+      <Banner
+        tone="ok"
+        icon={<CheckCircle2 className="size-5" />}
+        title="Imported from Shopify"
+        text={`Imported ${s.status.pages_found.toLocaleString()} products and pages from your store.${s.status.truncated ? " (import limit reached)" : ""} Open any of them to edit its SEO and publish it back.`}
+      />
     )
   }
   if (s.status.source === "sitemap") {
@@ -666,6 +729,7 @@ function FreshnessChart({ summary }: { summary: Summary }) {
 const SOURCE_META: Record<string, Slice> = {
   sitemap: { name: "From sitemap", value: 0, color: "var(--chart-1)" },
   crawl: { name: "From crawl", value: 0, color: "var(--chart-2)" },
+  shopify: { name: "From Shopify", value: 0, color: "var(--chart-3)" },
   other: { name: "Other", value: 0, color: "var(--muted-foreground)" },
 }
 

@@ -12,12 +12,16 @@ export interface FieldError {
 export class ApiError extends Error {
   status: number
   fieldErrors: FieldError[]
+  /** The raw response body, for endpoints that return structured error data
+   * (e.g. a 409 conflict carrying the server's current version). */
+  body: unknown
 
-  constructor(message: string, status: number, fieldErrors: FieldError[] = []) {
+  constructor(message: string, status: number, fieldErrors: FieldError[] = [], body: unknown = undefined) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.fieldErrors = fieldErrors
+    this.body = body
   }
 }
 
@@ -44,10 +48,10 @@ export function apiErrorFromBody(status: number, body: unknown): ApiError {
       field: String(item.loc[item.loc.length - 1] ?? ""),
       message: item.msg,
     }))
-    return new ApiError("Validation failed", status, fieldErrors)
+    return new ApiError("Validation failed", status, fieldErrors, body)
   }
-  if (typeof detail === "string") return new ApiError(detail, status)
-  return new ApiError("Something went wrong. Please try again.", status)
+  if (typeof detail === "string") return new ApiError(detail, status, [], body)
+  return new ApiError("Something went wrong. Please try again.", status, [], body)
 }
 
 /**

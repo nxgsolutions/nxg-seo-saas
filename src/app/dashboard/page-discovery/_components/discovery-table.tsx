@@ -9,40 +9,45 @@ import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useDiscoveredPages } from "@/hooks/api/use-page-discovery"
 import { errorMessage } from "@/lib/api/client"
 import { pageDiscoveryApi, type DiscoveredPage } from "@/lib/api/page-discovery"
+import { shopifyAdminUrl } from "@/lib/api/shopify"
 import { fetchAllPages } from "@/lib/api/pagination"
 import { downloadCsv } from "@/lib/report/csv"
 import { cn } from "@/lib/utils"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { scoreColor } from "@/app/dashboard/page-audit/_lib/page-audit-helpers"
-import { Ban, Check, Download, ExternalLink, FileSearch, Loader2, Minus, PenLine, ShieldAlert } from "lucide-react"
+import { Ban, Check, Download, ExternalLink, FileSearch, Loader2, Minus, PenLine, ShieldAlert, ShoppingBag } from "lucide-react"
 import Link from "next/link"
 import * as React from "react"
 import { toast } from "sonner"
 import {
-  fmtDate, INDEXABLE_FILTERS, isBlocked, SORT_OPTIONS, STATUS_FILTERS, TYPE_FILTERS, sortOrder, typeMeta,
+  fmtDate, INDEXABLE_FILTERS, isBlocked, SORT_OPTIONS, SOURCE_FILTERS, STATUS_FILTERS, TYPE_FILTERS, sortOrder,
+  splitSource, typeMeta,
 } from "../_lib/page-discovery-helpers"
 
 const PAGE_SIZE = 10
 
-export function DiscoveryTable({ wid, did, running, total, className }: {
+export function DiscoveryTable({ wid, did, running, total, className, shopifyShop = null }: {
   wid: string; did: string; running: boolean; total: number
   className?: string
+  /** Connected store (xxx.myshopify.com) — enables the source filter + admin links. */
+  shopifyShop?: string | null
 }) {
   const [q, setQ] = React.useState("")
   const debouncedQ = useDebouncedValue(q)
   const [type, setType] = React.useState("all")
   const [status, setStatus] = React.useState("all")
   const [indexable, setIndexable] = React.useState("all")
+  const [source, setSource] = React.useState("all")
   const [sort, setSort] = React.useState("priority")
   const [page, setPage] = React.useState(1)
   const [exporting, setExporting] = React.useState(false)
 
   // Any filter / sort change resets to page 1 (during render, no effect).
-  const filterKey = `${debouncedQ}|${type}|${status}|${indexable}|${sort}`
+  const filterKey = `${debouncedQ}|${type}|${status}|${indexable}|${source}|${sort}`
   const [prevKey, setPrevKey] = React.useState(filterKey)
   if (filterKey !== prevKey) { setPrevKey(filterKey); setPage(1) }
 
-  const filters = { type, status, indexable }
+  const filters = { type, status, indexable, ...splitSource(source) }
   const list = { page, pageSize: PAGE_SIZE, q: debouncedQ, sort, order: sortOrder(sort) }
   const query = useDiscoveredPages(wid, did, filters, list, running)
   const rows = query.data?.rows ?? []
@@ -68,6 +73,9 @@ export function DiscoveryTable({ wid, did, running, total, className }: {
           <h3 className="text-sm font-semibold">Discovered pages <span className="text-muted-foreground">({total.toLocaleString()})</span></h3>
           <div className="flex flex-wrap items-center gap-2">
             <SearchInput value={q} onValueChange={setQ} placeholder="Search pages…" className="w-48" aria-label="Search pages" />
+            {shopifyShop || source !== "all" ? (
+              <FilterSelect value={source} onChange={setSource} options={SOURCE_FILTERS} label="Source" />
+            ) : null}
             <FilterSelect value={type} onChange={setType} options={TYPE_FILTERS} label="Type" />
             <FilterSelect value={status} onChange={setStatus} options={STATUS_FILTERS} label="Status" />
             <FilterSelect value={indexable} onChange={setIndexable} options={INDEXABLE_FILTERS} label="Indexable" />
@@ -84,7 +92,7 @@ export function DiscoveryTable({ wid, did, running, total, className }: {
           <div className="rounded-lg border border-border"><TableSkeleton rows={8} columns={9} label="Loading pages…" /></div>
         ) : rows.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">
-            {running ? "Scanning…" : debouncedQ || type !== "all" || status !== "all" || indexable !== "all" ? "No pages match these filters." : "No pages yet."}
+            {running ? "Scanning…" : debouncedQ || type !== "all" || status !== "all" || indexable !== "all" || source !== "all" ? "No pages match these filters." : "No pages yet."}
           </p>
         ) : (
           <div className={cn("overflow-x-auto rounded-lg border border-border transition-opacity", query.isPlaceholderData && "opacity-60")}>
@@ -103,7 +111,7 @@ export function DiscoveryTable({ wid, did, running, total, className }: {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {rows.map((r, i) => <Row key={r.id} row={r} sn={startIndex + i + 1} />)}
+                {rows.map((r, i) => <Row key={r.id} row={r} sn={startIndex + i + 1} shopifyShop={shopifyShop} />)}
               </tbody>
             </table>
           </div>
@@ -115,10 +123,11 @@ export function DiscoveryTable({ wid, did, running, total, className }: {
   )
 }
 
-function Row({ row: r, sn }: {
-  row: DiscoveredPage; sn: number
+function Row({ row: r, sn, shopifyShop }: {
+  row: DiscoveredPage; sn: number; shopifyShop: string | null
 }) {
   const t = typeMeta(r.page_type)
+  const adminUrl = r.external_source === "shopify" ? shopifyAdminUrl(shopifyShop, r.external_type, r.external_id) : null
   const ok = r.http_status === 200
   return (
     <tr className="align-top hover:bg-muted/40">
@@ -145,6 +154,13 @@ function Row({ row: r, sn }: {
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-xs">
           <span className="size-2 shrink-0 rounded-sm" style={{ background: t.color }} />{t.label}
         </span>
+        {r.external_source === "shopify" ? (
+          <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground"
+            title={r.published === false ? "Not published on the online store" : "Imported from Shopify"}>
+            <ShoppingBag className="size-3 text-emerald-600 dark:text-emerald-400" />
+            Shopify{r.published === false ? " · draft" : ""}
+          </span>
+        ) : null}
       </td>
       <td className="px-3 py-2.5 text-center">
         <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium tabular-nums",
@@ -192,6 +208,12 @@ function Row({ row: r, sn }: {
           <Button size="xs" render={<Link href={`/dashboard/page-discovery/edit?page=${encodeURIComponent(r.id)}`} />}>
             <PenLine /> Edit
           </Button>
+          {adminUrl ? (
+            <Button size="xs" variant="ghost" title="Open in Shopify admin" aria-label="Open in Shopify admin"
+              render={<a href={adminUrl} target="_blank" rel="noreferrer" />}>
+              <ShoppingBag />
+            </Button>
+          ) : null}
           <Button size="xs" variant="outline" title="Open full Page Audit"
             render={<Link href={`/dashboard/page-audit?url=${encodeURIComponent(r.url)}`} />}>
             <FileSearch /> Audit

@@ -7,6 +7,7 @@ export interface TypeMeta {
 
 /** Stable label + donut color per page type (order = legend/donut order). */
 export const TYPE_META: Record<string, TypeMeta> = {
+  product: { label: "Products", color: "var(--chart-2)" },
   content: { label: "Content pages", color: "var(--chart-1)" },
   blog: { label: "Blog posts", color: "var(--chart-2)" },
   category: { label: "Category pages", color: "var(--chart-3)" },
@@ -15,7 +16,7 @@ export const TYPE_META: Record<string, TypeMeta> = {
   other: { label: "Other pages", color: "var(--muted-foreground)" },
 }
 
-export const TYPE_ORDER = ["content", "blog", "category", "tag", "home", "other"] as const
+export const TYPE_ORDER = ["content", "product", "blog", "category", "tag", "home", "other"] as const
 
 export function typeMeta(type: string): TypeMeta {
   return TYPE_META[type] ?? { label: type, color: "var(--muted-foreground)" }
@@ -26,6 +27,21 @@ export const TYPE_FILTERS = [
   { value: "all", label: "All types" },
   ...TYPE_ORDER.map((t) => ({ value: t, label: TYPE_META[t].label })),
 ]
+
+export const SOURCE_FILTERS = [
+  { value: "all", label: "All sources" },
+  { value: "shopify:product", label: "Shopify products" },
+  { value: "shopify:page", label: "Shopify pages" },
+  { value: "shopify", label: "All Shopify items" },
+  { value: "sitemap", label: "From sitemap" },
+  { value: "crawl", label: "From crawl" },
+]
+
+/** "shopify:product" → { source: "shopify", externalType: "product" }. */
+export function splitSource(value: string): { source: string; externalType: string } {
+  const [source, externalType] = value.split(":")
+  return { source: source || "all", externalType: externalType || "all" }
+}
 
 export const STATUS_FILTERS = [
   { value: "all", label: "All status" },

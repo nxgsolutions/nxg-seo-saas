@@ -6,6 +6,7 @@ import { BarChart3, Bot, Cpu, Gauge, Loader2, Search, Sparkles, CreditCard } fro
 import { toast } from "sonner"
 
 import { integrationsApi } from "@/lib/api/integrations"
+import { ShopifyIntegration } from "@/components/dashboard/shopify-integration"
 import { useConnectGsc, useDisconnectGsc } from "@/hooks/api/use-gsc"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { errorMessage } from "@/lib/api/client"
@@ -123,6 +124,9 @@ export function IntegrationsPanel() {
                   <StatusPill state="off" text="Not set up" />
                 )}
               </Row>
+
+              {/* Shopify (per active domain) */}
+              <ShopifyIntegration />
 
               {/* Server-side services (PageSpeed, DataForSEO, AI providers, Stripe) are
                   configured by the operator, not by users — hidden here. Set
