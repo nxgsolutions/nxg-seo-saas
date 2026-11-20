@@ -57,6 +57,11 @@ export const CompetitorRankChart = dynamic(
   { ssr: false, loading: () => <Skeleton className="h-72" /> }
 )
 
+export const KeywordRankChart = dynamic(
+  () => import("./keyword-rank-chart").then((m) => m.KeywordRankChart),
+  { ssr: false, loading: () => <Skeleton className="h-72" /> }
+)
+
 export const OpportunityTrendChart = dynamic(
   () => import("./opportunity-trend-chart").then((m) => m.OpportunityTrendChart),
   { ssr: false, loading: () => <Skeleton className="h-72" /> }

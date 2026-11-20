@@ -23,6 +23,20 @@ export function useRankEntries(wid: string | null, did: string | null, keywordId
   })
 }
 
+/** Our + competitor rank timeline for one keyword (the multi-line chart). */
+export function useRankHistory(
+  wid: string | null,
+  did: string | null,
+  keywordId: string | null,
+  params?: { start?: string; end?: string }
+) {
+  return useQuery({
+    queryKey: [...queryKeys.rankings(wid ?? "", did ?? ""), "history", keywordId, params?.start ?? "", params?.end ?? ""],
+    queryFn: () => rankingsApi.rankHistory(wid!, did!, keywordId!, params),
+    enabled: Boolean(wid && did && keywordId),
+  })
+}
+
 /** Every rank-tracking change refreshes the keyword list and its histories. */
 function useRankingsMutation<V, R>(wid: string | null, did: string | null, fn: (v: V) => Promise<R>) {
   const qc = useQueryClient()
@@ -53,3 +67,36 @@ export const useImportGscKeywords = (wid: string | null, did: string | null) =>
 /** Pull positions from the domain's latest SERP snapshot (already-stored data, free). */
 export const useSyncSerpPositions = (wid: string | null, did: string | null) =>
   useRankingsMutation(wid, did, () => rankingsApi.syncSerp(wid!, did!))
+
+/** Aggregated competitor rank over time across tracked keywords (both pages). */
+export function useRankTimeline(
+  wid: string | null,
+  did: string | null,
+  params?: { freq?: "weekly" | "monthly"; start?: string; end?: string; keywords?: string[]; competitors?: string[]; top?: number }
+) {
+  return useQuery({
+    queryKey: [
+      ...queryKeys.rankings(wid ?? "", did ?? ""), "timeline",
+      params?.freq ?? "weekly", params?.start ?? "", params?.end ?? "",
+      (params?.keywords ?? []).join(","), (params?.competitors ?? []).join(","), params?.top ?? 8,
+    ],
+    queryFn: () => rankingsApi.rankTimeline(wid!, did!, params),
+    enabled: Boolean(wid && did),
+  })
+}
+
+/** Fetch a fresh SERP for one keyword now (sandbox free; live paid). */
+export const useTrackNow = (wid: string | null, did: string | null) =>
+  useRankingsMutation(wid, did, (keywordId: string) => rankingsApi.trackNow(wid!, did!, keywordId))
+
+/** Change a keyword's tracking cadence (15|30) / on-off. */
+export const useUpdateTracking = (wid: string | null, did: string | null) =>
+  useRankingsMutation(wid, did, (v: { keywordId: string; tracking_frequency_days?: number; tracking_enabled?: boolean }) =>
+    rankingsApi.updateTracking(wid!, did!, v.keywordId, {
+      tracking_frequency_days: v.tracking_frequency_days,
+      tracking_enabled: v.tracking_enabled,
+    }))
+
+/** Process this domain's keywords that are due for a fetch (manual scheduler run). */
+export const useRunDue = (wid: string | null, did: string | null) =>
+  useRankingsMutation(wid, did, () => rankingsApi.runDue(wid!, did!))

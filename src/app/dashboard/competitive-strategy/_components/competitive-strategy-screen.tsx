@@ -37,7 +37,11 @@ import type { DateRange } from "react-day-picker"
 
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Favicon } from "@/app/dashboard/competitors/_components/favicon"
-import { useActiveDomain, useCompetitorSelection } from "@/hooks/dashboard"
+import {
+  useActiveDomain,
+  useActiveMarket,
+  useCompetitorSelection,
+} from "@/hooks/dashboard"
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -97,16 +101,26 @@ const VIEWS = [
 ] as const
 type ViewId = (typeof VIEWS)[number]["id"]
 
-// Markets the user can compare in (default India). Each drives the `country`
-// param of the analytics + trend queries.
+// Markets the user can compare in — every country the analytics/location table
+// supports. Each drives the `country` param of the analytics + trend queries.
+// The default is the active website's own market (see `coerceMarket`), not a
+// fixed country.
 const MARKET_OPTIONS: {
   code: AnalyticsCountry
-  flag: string
   label: string
 }[] = [
-  { code: "in", flag: "🇮🇳", label: "India" },
-  { code: "us", flag: "🇺🇸", label: "United States" },
+  { code: "in", label: "India" },
+  { code: "us", label: "United States" },
 ]
+const SUPPORTED_MARKETS = MARKET_OPTIONS.map((m) => m.code)
+
+/** The website's own market if it's one we support here, else India (the only
+ *  market enabled for now). Keeps the picker honest about which markets have data. */
+function coerceMarket(country: string | undefined): AnalyticsCountry {
+  return (SUPPORTED_MARKETS as readonly string[]).includes(country ?? "")
+    ? (country as AnalyticsCountry)
+    : "in"
+}
 
 /** Inline SVG flag — flag emoji don't render on Windows, so draw them. */
 function MarketFlag({ code }: { code: AnalyticsCountry }) {
@@ -114,25 +128,76 @@ function MarketFlag({ code }: { code: AnalyticsCountry }) {
     width: 18, height: 12, "aria-hidden": true,
     className: "shrink-0 rounded-[2px] ring-1 ring-black/10",
   } as const
-  if (code === "in") {
-    return (
-      <svg viewBox="0 0 24 16" {...props}>
-        <rect width="24" height="16" fill="#fff" />
-        <rect width="24" height="5.333" fill="#FF9933" />
-        <rect y="10.667" width="24" height="5.333" fill="#138808" />
-        <circle cx="12" cy="8" r="1.9" fill="none" stroke="#000080" strokeWidth="0.5" />
-      </svg>
-    )
+  switch (code) {
+    case "us":
+      return (
+        <svg viewBox="0 0 26 16" {...props}>
+          <rect width="26" height="16" fill="#B22234" />
+          {[1, 3, 5, 7, 9, 11].map((i) => (
+            <rect key={i} y={(i * 16) / 13} width="26" height={16 / 13} fill="#fff" />
+          ))}
+          <rect width="11" height={(16 * 7) / 13} fill="#3C3B6E" />
+        </svg>
+      )
+    case "gb":
+      return (
+        <svg viewBox="0 0 24 16" {...props}>
+          <rect width="24" height="16" fill="#012169" />
+          <g stroke="#fff" strokeWidth="3.2">
+            <line x1="0" y1="0" x2="24" y2="16" />
+            <line x1="24" y1="0" x2="0" y2="16" />
+          </g>
+          <g stroke="#C8102E" strokeWidth="1.6">
+            <line x1="0" y1="0" x2="24" y2="16" />
+            <line x1="24" y1="0" x2="0" y2="16" />
+          </g>
+          <rect x="9" width="6" height="16" fill="#fff" />
+          <rect y="5" width="24" height="6" fill="#fff" />
+          <rect x="10" width="4" height="16" fill="#C8102E" />
+          <rect y="6" width="24" height="4" fill="#C8102E" />
+        </svg>
+      )
+    case "ca":
+      return (
+        <svg viewBox="0 0 24 16" {...props}>
+          <rect width="24" height="16" fill="#fff" />
+          <rect width="6" height="16" fill="#D52B1E" />
+          <rect x="18" width="6" height="16" fill="#D52B1E" />
+          <path
+            fill="#D52B1E"
+            d="M12 3.4l.85 1.7 1.9-.4-.85 1.8 1.5 1-1.8.55.3 1.95-1.5-1.05v2.1h-.8V9.95l-1.5 1.05.3-1.95-1.8-.55 1.5-1-.85-1.8 1.9.4z"
+          />
+        </svg>
+      )
+    case "au":
+      return (
+        <svg viewBox="0 0 24 16" {...props}>
+          <rect width="24" height="16" fill="#00247D" />
+          <g stroke="#fff" strokeWidth="1.6">
+            <line x1="0" y1="0" x2="12" y2="8" />
+            <line x1="12" y1="0" x2="0" y2="8" />
+          </g>
+          <rect x="5" width="2" height="8" fill="#fff" />
+          <rect y="3" width="12" height="2" fill="#fff" />
+          <rect x="5.4" width="1.2" height="8" fill="#C8102E" />
+          <rect y="3.4" width="12" height="1.2" fill="#C8102E" />
+          <circle cx="6" cy="12.5" r="1.3" fill="#fff" />
+          <circle cx="18" cy="4" r="0.8" fill="#fff" />
+          <circle cx="20.5" cy="8" r="0.8" fill="#fff" />
+          <circle cx="17" cy="11" r="0.8" fill="#fff" />
+          <circle cx="21" cy="12.5" r="0.6" fill="#fff" />
+        </svg>
+      )
+    default:
+      return (
+        <svg viewBox="0 0 24 16" {...props}>
+          <rect width="24" height="16" fill="#fff" />
+          <rect width="24" height="5.333" fill="#FF9933" />
+          <rect y="10.667" width="24" height="5.333" fill="#138808" />
+          <circle cx="12" cy="8" r="1.9" fill="none" stroke="#000080" strokeWidth="0.5" />
+        </svg>
+      )
   }
-  return (
-    <svg viewBox="0 0 26 16" {...props}>
-      <rect width="26" height="16" fill="#B22234" />
-      {[1, 3, 5, 7, 9, 11].map((i) => (
-        <rect key={i} y={(i * 16) / 13} width="26" height={16 / 13} fill="#fff" />
-      ))}
-      <rect width="11" height={(16 * 7) / 13} fill="#3C3B6E" />
-    </svg>
-  )
 }
 
 // Number of competitors shown in the compare bar by default (the strongest by
@@ -266,8 +331,17 @@ function FilterChip({
 }
 
 export default function CompetitiveStrategyScreen() {
-  // Market (country) the comparison runs in — default India. Drives the queries.
-  const [market, setMarket] = React.useState<AnalyticsCountry>("in")
+  // Market (country) the comparison runs in — defaults to the active website's
+  // OWN configured market (not a fixed country). The picker can still override
+  // it; the override holds until the user switches to another website, at which
+  // point it follows that website's market again.
+  const domainMarket = coerceMarket(useActiveMarket().country)
+  const [market, setMarket] = React.useState<AnalyticsCountry>(domainMarket)
+  const [prevDomainMarket, setPrevDomainMarket] = React.useState(domainMarket)
+  if (domainMarket !== prevDomainMarket) {
+    setPrevDomainMarket(domainMarket)
+    setMarket(domainMarket)
+  }
   const {
     ready,
     analytics,
@@ -283,6 +357,9 @@ export default function CompetitiveStrategyScreen() {
   // hardcoded — it is always pinned first in the comparison.
   const activeDomain = useActiveDomain()
   const domainId = activeDomain?.id ?? null
+  // The user's own website — always pinned, never a "competitor", and never
+  // counted toward the 4-competitor limit.
+  const primaryHost = normHost(activeDomain?.domain ?? "")
   // Persistent, capped (max 4) competitor selection — survives navigation and
   // refresh. `draft` = the chips being built; `compared` = what the charts show.
   const {
@@ -297,11 +374,18 @@ export default function CompetitiveStrategyScreen() {
     atLimit,
     count,
     max,
-  } = useCompetitorSelection(domainId)
+  } = useCompetitorSelection(domainId, primaryHost)
   const [metric, setMetric] = React.useState<MetricId>("traffic")
   const [view, setView] = React.useState<ViewId>("market")
   // Confirm dialog for the paid "fetch history" action (competitors missing data).
+  // Opened straight from Compare when a drafted competitor has no stored history:
+  // Fetch pulls it then shows results; Cancel drops that competitor automatically.
   const [confirmFetch, setConfirmFetch] = React.useState(false)
+  // The drafted competitors the dialog is about (no stored history yet).
+  const [pendingMissing, setPendingMissing] = React.useState<string[]>([])
+  // Set once a fetch has succeeded, so closing the dialog then doesn't also treat
+  // it as a cancel (which would remove the competitors we just fetched).
+  const confirmedRef = React.useRef(false)
   // Filters (narrow what the charts show): free-text search + date range.
   const [search, setSearch] = React.useState("")
   // Market Research filters — thresholds on each competitor's current whole-site
@@ -426,22 +510,36 @@ export default function CompetitiveStrategyScreen() {
   }
 
   const rows = analytics?.rows ?? []
-  const hasStrategy = (strategy?.competitors?.length ?? 0) > 0
-  if (rows.length === 0 && !hasStrategy) {
+  // Whether THIS workspace + website has any competitors to compare. A competitor
+  // is any non-primary domain in the SERP footprint or the analytics rows — both
+  // workspace/website-scoped. We deliberately do NOT count the primary domain's
+  // own whole-site metrics here: those tables are keyed by domain string and are
+  // global, so a brand-new workspace can already have the primary's data. Without
+  // competitors there is nothing to compare, so we show an empty state instead of
+  // a solo chart of the primary (and never any mock/fallback data).
+  const hasCompetitors =
+    (strategy?.competitors?.length ?? 0) > 0 || rows.some((r) => !r.is_you)
+  if (!hasCompetitors) {
     return (
       <div className="space-y-5">
         {header}
         <Card>
-          <CardContent className="space-y-3 py-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              No competitor data stored yet for this website.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              render={<Link href="/dashboard/competitors/keywords" />}
+          <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+            <span
+              aria-hidden
+              className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary"
             >
-              <Users /> Open Competitor Keywords to fetch metrics
+              <Users className="size-6" />
+            </span>
+            <div className="space-y-1.5">
+              <p className="text-base font-semibold">No competitors added yet</p>
+              <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+                Head to Competitor Analysis to fetch and add your competitors,
+                then come back here to compare them.
+              </p>
+            </div>
+            <Button size="lg" render={<Link href="/dashboard/competitors" />}>
+              <Users /> Get Your Competitors
             </Button>
           </CardContent>
         </Card>
@@ -454,8 +552,6 @@ export default function CompetitiveStrategyScreen() {
     const i = rows.findIndex((r) => r.domain === domain)
     return PALETTE[(i >= 0 ? i : fallback) % PALETTE.length]
   }
-
-  const primaryHost = normHost(activeDomain?.domain ?? "")
 
   // Two sets: `draft` drives the chips the user is building; `compared` (the
   // committed set, via the Compare button) drives the charts below. Primary is
@@ -646,9 +742,45 @@ export default function CompetitiveStrategyScreen() {
       )
       .map((c) => c.domain),
   )
-  const missingHistory = comparedCompetitors.filter(
-    (d) => !historyDomainsWithData.has(d),
-  )
+  // Compare is the trigger: when a drafted competitor has no stored history we
+  // don't quietly commit it — we ask first (fetch now, or cancel & drop it).
+  //
+  // Compare button. If every drafted competitor already has data, commit now.
+  // Otherwise open the confirm dialog for the ones that don't.
+  const handleCompare = () => {
+    const missing = draftCompetitors.filter((d) => !historyDomainsWithData.has(d))
+    if (missing.length > 0) {
+      confirmedRef.current = false
+      setPendingMissing(missing)
+      setConfirmFetch(true)
+      return
+    }
+    compare()
+  }
+
+  // Fetch now: pull the missing domains (stored data reused), then show results.
+  const confirmFetchHistory = async () => {
+    await refreshAnalyticsAsync(
+      false,
+      pendingMissing.length > 0 ? pendingMissing : undefined,
+    )
+    compare()
+    confirmedRef.current = true
+  }
+
+  // Closing the dialog. "Still compare now" (or a dismiss) commits the
+  // comparison as-is, keeping the competitors that had no data — their chart
+  // lines simply stay empty until the data is fetched later.
+  const handleFetchDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      if (!confirmedRef.current && pendingMissing.length > 0) {
+        compare()
+      }
+      setPendingMissing([])
+      confirmedRef.current = false
+    }
+    setConfirmFetch(open)
+  }
 
   // Export the active tab's series as CSV (one column per domain, one row/month).
   const exportCsv = () => {
@@ -727,7 +859,7 @@ export default function CompetitiveStrategyScreen() {
             <Button
               type="button"
               variant="default"
-              onClick={compare}
+              onClick={handleCompare}
               disabled={!isDirty}
               className="shrink-0"
             >
@@ -978,38 +1110,6 @@ export default function CompetitiveStrategyScreen() {
         </div>
       </div>
 
-      {/* Competitors added to the comparison that have no stored history yet. */}
-      {view === "market" && missingHistory.length > 0 && (
-        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-          <div className="flex items-start gap-2.5">
-            <History className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div className="space-y-0.5 text-sm">
-              <p className="font-medium">
-                Historical comparison data isn’t available yet for{" "}
-                {missingHistory.join(", ")}.
-              </p>
-              <p className="text-muted-foreground">
-                {missingHistory.length === 1
-                  ? "This competitor has"
-                  : "These competitors have"}{" "}
-                been added to your selection — historical charts will appear
-                once their data is fetched.
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setConfirmFetch(true)}
-            disabled={refreshing}
-            className="shrink-0"
-          >
-            {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            {refreshing ? "Fetching…" : "Fetch history"}
-          </Button>
-        </div>
-      )}
-
       {view === "overlap" ? (
         <CompetitorGapOverlap
           competitors={competitorDomains}
@@ -1210,27 +1310,23 @@ export default function CompetitiveStrategyScreen() {
         </Card>
       )}
 
-      {/* Paid fetch confirm — history for competitors missing recent data. */}
+      {/* Opened from Compare when a competitor has no data yet: "Get now and
+          compare" fetches it then shows results; "Still compare now" compares
+          as-is, keeping the competitor (its line just stays empty). */}
       <ConfirmDialog
         open={confirmFetch}
-        onOpenChange={setConfirmFetch}
+        onOpenChange={handleFetchDialogOpenChange}
         tone="default"
         icon={<History className="size-5" />}
-        title="Fetch competitor history?"
-        description="This pulls the last 12 months of estimated traffic and ranking-keyword history, then fills the charts. Only domains without stored history are fetched — anything already saved is reused."
-        details={
-          <p className="text-muted-foreground">
-            {missingHistory.length > 0
-              ? `Fetches only ${missingHistory.join(", ")} (the domain${missingHistory.length === 1 ? "" : "s"} missing history).`
-              : "Fetches any compared domains missing recent data."}{" "}
-            This may take a few moments.
-          </p>
+        title="Competitor data not available"
+        description={
+          pendingMissing.length === 1
+            ? `No data currently for ${pendingMissing[0]}.`
+            : `No data currently for ${pendingMissing.join(", ")}.`
         }
-        confirmLabel="Fetch history"
-        onConfirm={() =>
-          // Only the domains missing history (force=false → stored data reused).
-          refreshAnalyticsAsync(false, missingHistory.length > 0 ? missingHistory : undefined)
-        }
+        confirmLabel="Get now and compare"
+        cancelLabel="Still compare now"
+        onConfirm={confirmFetchHistory}
       />
     </div>
   )

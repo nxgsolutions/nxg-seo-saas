@@ -11,7 +11,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 
 import { useActiveMarket } from "@/hooks/dashboard/use-active-market"
-import { competitorsApi, type DiscoveryJob } from "@/lib/api/competitors"
+import {
+  competitorsApi,
+  type DiscoveryJob,
+  type RankTrendFreq,
+} from "@/lib/api/competitors"
 import { queryKeys } from "@/lib/query/keys"
 
 const domainScope = (wid: string, did: string) => ["ws", wid, "domain", did] as const
@@ -58,10 +62,20 @@ export function useCompetitorSuggestions(wid: string | null, did: string | null)
 }
 
 /** Average SERP position per competitor over time. */
-export function useCompetitorHistory(wid: string | null, did: string | null) {
+export function useCompetitorHistory(
+  wid: string | null,
+  did: string | null,
+  opts: { freq: RankTrendFreq; start: string; end: string },
+) {
   return useQuery({
-    queryKey: [...queryKeys.competitors(wid ?? "", did ?? ""), "history"],
-    queryFn: () => competitorsApi.history(wid!, did!),
+    queryKey: [
+      ...queryKeys.competitors(wid ?? "", did ?? ""),
+      "history",
+      opts.freq,
+      opts.start,
+      opts.end,
+    ],
+    queryFn: () => competitorsApi.history(wid!, did!, opts),
     enabled: Boolean(wid && did),
   })
 }

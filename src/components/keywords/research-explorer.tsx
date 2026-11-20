@@ -15,6 +15,15 @@ import { KeywordBreakdownSheet } from "@/components/keywords/keyword-breakdown-s
 import type { OpportunityPoint } from "@/components/charts/opportunity-map-chart"
 
 const number = (v: number | null | undefined) => v == null ? "—" : v.toLocaleString()
+/** Colour-coded intent cell so the four intents read at a glance (unknown = muted). */
+const INTENT_STYLE: Record<string, string> = {
+  informational: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  commercial: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  transactional: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  navigational: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  unknown: "bg-muted text-muted-foreground",
+}
+const intentLabel = (v?: string | null) => v ? v.charAt(0).toUpperCase() + v.slice(1) : "Unknown"
 export type ResultSortKey = "search_volume" | "cpc" | "competition" | "difficulty"
 export interface ResultSort { key: ResultSortKey; desc: boolean }
 const ROW_SKELETONS = 8
@@ -78,7 +87,7 @@ export function ResearchExplorer({ rows, workspaceId, domainId, country, languag
       <td className="p-2 text-right tabular-nums">{number(row.metric?.cpc)}</td>
       <td className="p-2 text-right tabular-nums">{number(row.metric?.competition)}</td>
       <td className="p-2 text-right tabular-nums">{row.metric?.difficulty == null ? "—" : Math.round(row.metric.difficulty)}</td>
-      <td className="p-3"><Badge variant="outline">{row.metric?.intent ?? "Unknown"}</Badge></td>
+      <td className="p-3"><Badge variant="outline" className={cn("font-normal", INTENT_STYLE[row.metric?.intent ?? "unknown"] ?? INTENT_STYLE.unknown)}>{intentLabel(row.metric?.intent)}</Badge></td>
     </tr>
   )
   return <div className="min-w-0">

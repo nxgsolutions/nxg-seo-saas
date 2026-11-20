@@ -24,24 +24,40 @@ export interface TrackedCompetitorsResponse {
   rows: TrackedCompetitorRow[]
 }
 
+/** Whole-site analytics metrics plottable on the trend chart. */
+export type RankTrendMetric =
+  | "traffic_share"
+  | "est_traffic"
+  | "ranking_keywords"
+  | "domain_rank"
+
 export interface CompetitorHistoryPoint {
   captured_on: string
-  avg_position: number
-  best_position: number
-  keywords_shared: number
+  // 0 for a period with no fetch (continuous series, zero-filled — not fabricated).
+  est_traffic: number
+  ranking_keywords: number
+  domain_rank: number
+  traffic_share: number
 }
 
 export interface CompetitorHistorySeries {
   competitor: string
+  is_you: boolean
   points: CompetitorHistoryPoint[]
 }
+
+export type RankTrendFreq = "daily" | "weekly" | "monthly"
 
 export interface CompetitorHistoryResponse {
   domain: string
   country: string
-  language: string
+  freq: RankTrendFreq
+  start: string
+  end: string
   dates: string[]
   competitors: CompetitorHistorySeries[]
+  /** Any competitor record in the range; false → show empty state. */
+  has_data: boolean
 }
 
 export interface CompetitorRefreshResponse {
@@ -245,8 +261,18 @@ export const competitorsApi = {
     return apiClient.get<TrackedCompetitorsResponse>(`${base(wid, did)}/tracked?${q}`)
   },
 
-  history: (wid: string, did: string) =>
-    apiClient.get<CompetitorHistoryResponse>(`${base(wid, did)}/history`),
+  history: (
+    wid: string,
+    did: string,
+    opts: { freq?: RankTrendFreq; start?: string; end?: string } = {}
+  ) => {
+    const q = new URLSearchParams({ freq: opts.freq ?? "weekly" })
+    if (opts.start) q.set("start", opts.start)
+    if (opts.end) q.set("end", opts.end)
+    return apiClient.get<CompetitorHistoryResponse>(
+      `${base(wid, did)}/history?${q}`
+    )
+  },
 
   refresh: (
     wid: string,

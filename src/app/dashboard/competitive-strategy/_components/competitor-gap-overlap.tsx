@@ -770,25 +770,35 @@ export function CompetitorGapOverlap({
                     <th className="px-2 py-2 text-right font-medium">KD</th>
                     <th className="px-2 py-2 text-right font-medium">CPC</th>
                     {columns.map((c) => (
-                      <th key={c.domain} className="px-2 py-2 text-right font-medium">
-                        {c.has_run ? (
-                          <span className="inline-flex items-center gap-1" title={c.domain}>
-                            {c.is_you ? "You" : (
-                              <Link
-                                href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(c.domain)}`}
-                                className="hover:text-primary"
-                              >
-                                <Favicon domain={c.domain} size={14} />
-                              </Link>
-                            )}
+                      <th key={c.domain} className="px-2 py-2 text-right align-bottom font-medium">
+                        {c.is_you ? (
+                          <span
+                            className="ml-auto inline-flex max-w-[9rem] items-center justify-end gap-1.5"
+                            title={c.domain}
+                          >
+                            <Favicon domain={c.domain} size={14} />
+                            <span className="truncate">You</span>
                           </span>
+                        ) : c.has_run ? (
+                          <Link
+                            href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(c.domain)}`}
+                            className="ml-auto inline-flex max-w-[9rem] items-center justify-end gap-1.5 font-normal normal-case text-foreground hover:text-primary"
+                            title={c.domain}
+                          >
+                            <Favicon domain={c.domain} size={14} />
+                            <span className="truncate">{c.domain}</span>
+                          </Link>
                         ) : (
                           <Link
                             href={`/dashboard/competitors/keywords?competitor=${encodeURIComponent(c.domain)}`}
-                            className="text-primary hover:underline"
-                            title={`${c.domain}: no keyword data yet`}
+                            className="ml-auto inline-flex max-w-[9rem] flex-col items-end gap-0.5 hover:text-primary"
+                            title={`${c.domain}: no keyword data yet — click to fetch`}
                           >
-                            Fetch
+                            <span className="inline-flex max-w-full items-center justify-end gap-1.5 font-normal normal-case text-muted-foreground">
+                              <Favicon domain={c.domain} size={14} />
+                              <span className="truncate">{c.domain}</span>
+                            </span>
+                            <span className="text-[10px] font-medium text-primary">Fetch</span>
                           </Link>
                         )}
                       </th>

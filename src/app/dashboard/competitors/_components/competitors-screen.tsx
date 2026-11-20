@@ -10,8 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useCompetitorList, useDiscoverCompetitors } from "@/hooks/api/use-competitors"
 import { Loader2, Search, Sparkles, Users } from "lucide-react"
 import { useCompetitorsScreen } from "../_hooks/use-competitors-screen"
+import { CompetitorRankTimeline } from "@/components/rankings/competitor-rank-timeline"
 import { BusinessProfilePanel } from "./business-profile-panel"
-import { CompetitorRankTrendPanel } from "./competitor-rank-trend-panel"
 import { DiscoveryOverlay } from "./discovery-progress"
 import { EditableCompetitorsPanel } from "./editable-competitors-panel"
 
@@ -66,7 +66,7 @@ function CompetitorsBody({ domainId }: { domainId: string }) {
         <>
           <EditableCompetitorsPanel domainId={domainId} discover={discover} />
           <BusinessProfilePanel domainId={domainId} discovering={discover.isRunning} />
-          <CompetitorRankTrendPanel domainId={domainId} />
+          <CompetitorRankTimeline workspaceId={workspaceId} domainId={domainId || null} variant="simple" />
         </>
       )}
 

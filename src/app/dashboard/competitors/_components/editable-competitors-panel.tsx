@@ -95,6 +95,9 @@ export function EditableCompetitorsPanel({
 
   // Competitor waiting for delete confirmation (null = dialog closed).
   const [toRemove, setToRemove] = React.useState<CuratedCompetitor | null>(null)
+  // Domain the user picked to add, awaiting confirmation. Adding runs a quick
+  // site check, so we confirm before kicking it off (null = dialog closed).
+  const [toAdd, setToAdd] = React.useState<string | null>(null)
 
   async function remove(id: string) {
     if (!workspaceId || !did) return
@@ -202,7 +205,8 @@ export function EditableCompetitorsPanel({
         <CompetitorCombobox
           options={addOptions}
           onPick={(d) => {
-            void add(d)
+            const t = d.trim()
+            if (t) setToAdd(t)
           }}
           clearOnPick
           placeholder="Add a competitor domain, e.g. yourcompetitor.com"
@@ -382,6 +386,34 @@ export function EditableCompetitorsPanel({
         }
         errorText="Could not remove the competitor. Please try again."
         onConfirm={() => toRemove && remove(toRemove.id)}
+      />
+
+      {/* Confirm before adding — adding runs a quick check on the site to make
+          sure it's a genuine competitor, so we ask first. */}
+      <ConfirmDialog
+        open={toAdd !== null}
+        onOpenChange={(o) => {
+          if (!o) setToAdd(null)
+        }}
+        tone="default"
+        icon={<Plus className="size-5" />}
+        title={<>Add {toAdd}?</>}
+        description={
+          <>
+            We&apos;ll take a quick look at{" "}
+            <span className="font-medium text-foreground">{toAdd}</span> to make
+            sure it&apos;s a genuine competitor, then add it to your list.
+          </>
+        }
+        confirmLabel={
+          <>
+            <Plus className="size-4" /> Add competitor
+          </>
+        }
+        errorText="Could not add the competitor. Please try again."
+        onConfirm={() => {
+          if (toAdd) add(toAdd)
+        }}
       />
 
       {/* Confirm merging the newly found competitors into the current list.

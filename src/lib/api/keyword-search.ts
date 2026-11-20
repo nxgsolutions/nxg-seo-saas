@@ -14,8 +14,9 @@ const base = (wid: string) => `/api/workspaces/${wid}/keyword-search`
 export const keywordSearchApi = {
   /** Run a search. Returns metadata + category counts only; page the
    * results with `results()` (nothing heavy comes back at once). */
-  run: (wid: string, seed: string, country = "us", language = "en") =>
-    apiClient.post<ResearchDetail>(`${base(wid)}/research`, { seed, country, language },
+  run: (wid: string, seed: string, country = "us", language = "en", domainId: string | null = null) =>
+    apiClient.post<ResearchDetail>(`${base(wid)}/research`,
+      { seed, country, language, domain_id: domainId },
       { params: { include_results: false } }),
 
   /** Recent searches; kind "all" mixes keyword + domain searches (newest first). */

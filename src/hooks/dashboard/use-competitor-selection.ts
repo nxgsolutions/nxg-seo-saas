@@ -32,7 +32,10 @@ function sameSet(a: string[], b: string[]): boolean {
   return b.every((x) => set.has(x))
 }
 
-export function useCompetitorSelection(domainId: string | null) {
+export function useCompetitorSelection(
+  domainId: string | null,
+  primaryHost?: string | null,
+) {
   const dispatch = useAppDispatch()
   const selection = useAppSelector(selectDomainSelection(domainId))
 
@@ -49,17 +52,26 @@ export function useCompetitorSelection(domainId: string | null) {
 
   const { draft, compared } = selection
   const hydrated = checked === domainId
-  const atLimit = draft.length >= MAX_COMPETITORS
+  // The cap and the count are about COMPETITORS only — the user's own website is
+  // never counted, even if it somehow ends up in the stored draft.
+  const primary = (primaryHost ?? "").toLowerCase()
+  const competitors = React.useMemo(
+    () => (primary ? draft.filter((d) => d !== primary) : draft),
+    [draft, primary],
+  )
+  const atLimit = competitors.length >= MAX_COMPETITORS
 
   const add = React.useCallback(
     (domain: string): boolean => {
       if (!domainId || !domain) return false
+      if (domain === primary) return false // never add your own website
       if (draft.includes(domain)) return false
-      if (draft.length >= MAX_COMPETITORS) return false
+      // Count only competitors toward the cap, not the primary.
+      if (draft.filter((d) => d !== primary).length >= MAX_COMPETITORS) return false
       dispatch(addDraftCompetitor({ domainId, domain }))
       return true
     },
-    [dispatch, domainId, draft],
+    [dispatch, domainId, draft, primary],
   )
 
   const remove = React.useCallback(
@@ -73,14 +85,13 @@ export function useCompetitorSelection(domainId: string | null) {
   const setDraft = React.useCallback(
     (domains: string[]) => {
       if (!domainId) return
-      dispatch(
-        setDraftCompetitors({
-          domainId,
-          domains: domains.slice(0, MAX_COMPETITORS),
-        }),
-      )
+      // Drop the primary and cap to the competitor limit.
+      const cleaned = domains
+        .filter((d) => d && d !== primary)
+        .slice(0, MAX_COMPETITORS)
+      dispatch(setDraftCompetitors({ domainId, domains: cleaned }))
     },
-    [dispatch, domainId],
+    [dispatch, domainId, primary],
   )
 
   const compare = React.useCallback(() => {
@@ -107,7 +118,8 @@ export function useCompetitorSelection(domainId: string | null) {
     isDirty: !sameSet(draft, compared),
     /** True once 4 competitors are drafted. */
     atLimit,
-    count: draft.length,
+    /** Number of competitors drafted (never counts the primary website). */
+    count: competitors.length,
     max: MAX_COMPETITORS,
   }
 }

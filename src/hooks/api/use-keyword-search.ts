@@ -63,8 +63,8 @@ export function useKeywordPoints(wid: string | null, id: string | null) {
 export function useRunKeywordSearch(wid: string | null) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { seed: string; country: string; language: string }) =>
-      keywordSearchApi.run(wid!, v.seed, v.country, v.language),
+    mutationFn: (v: { seed: string; country: string; language: string; domainId?: string | null }) =>
+      keywordSearchApi.run(wid!, v.seed, v.country, v.language, v.domainId ?? null),
     onSuccess: (detail: ResearchDetail) => {
       if (!wid) return
       qc.setQueryData(queryKeys.keywordSearch.detail(wid, detail.id), detail)

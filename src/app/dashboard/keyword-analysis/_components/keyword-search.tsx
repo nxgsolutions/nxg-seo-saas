@@ -68,8 +68,20 @@ export function KeywordSearch({
       return
     }
     setInputError(null)
+    // Step-wise console trace so you can see, per search, whether it is business/
+    // category-aware (an active website is sent) and the exact params going up.
+    console.info("[keyword-search] run →", {
+      seed: term.trim(),
+      country: location,
+      language,
+      domain_id: activeDomain?.id ?? null,
+      business_aware: Boolean(activeDomain?.id),
+      note: activeDomain?.id
+        ? "active website sent → backend adds Google Ads business/category ideas"
+        : "no active website → generic (Google Autocomplete only)",
+    })
     runSearch.mutate(
-      { seed: term.trim(), country: location, language },
+      { seed: term.trim(), country: location, language, domainId: activeDomain?.id ?? null },
       {
         onSuccess: (d) => {
           onShow(d.id)

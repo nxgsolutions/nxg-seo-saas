@@ -1,23 +1,24 @@
 "use client"
 
-import { RankTrendChart } from "@/components/charts/lazy"
-import type { RankPoint } from "@/components/charts/rank-trend-chart"
+import { CompetitorRankTimeline } from "@/components/rankings/competitor-rank-timeline"
 import { useActiveDomain, useActiveWorkspace } from "@/hooks/dashboard"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { NoDomain } from "@/components/dashboard/current-domain"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  useAddTrackedKeyword, useImportGscKeywords, useRankEntries, useRemoveTrackedKeyword,
-  useSyncGscPositions, useSyncSerpPositions, useTrackedKeywords,
+  useAddTrackedKeyword, useImportGscKeywords, useRemoveTrackedKeyword,
+  useSyncGscPositions, useSyncSerpPositions, useTrackedKeywords, useTrackNow, useUpdateTracking,
 } from "@/hooks/api/use-rankings"
 import { ApiError, errorMessage } from "@/lib/api/client"
 import { cn } from "@/lib/utils"
 import {
-  Award, Download, KeyRound, LineChart, ListChecks, Loader2, Plus, RefreshCw, Target, Trash2, TrendingUp,
+  Award, Calendar, Download, KeyRound, LineChart, ListChecks, Loader2, Plus, RefreshCw,
+  Search, Target, Trash2, TrendingUp,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import * as React from "react"
@@ -28,8 +29,8 @@ import { PositionDelta } from "./position-delta"
 /** Brief "what this page does" shown in the title help popover. */
 const rankTrackingHelp = (
   <>
-    <p><span className="font-medium text-foreground">Rank Tracking</span> follows a keyword&apos;s Google position over time for this website.</p>
-    <p className="mt-2">Add the keywords you care about, then click <span className="font-medium text-foreground">Update positions</span> to fill them from your latest search data. Select a row to see its trend.</p>
+    <p><span className="font-medium text-foreground">Rank Tracking</span> follows a keyword&apos;s Google position over time for this website — and how your competitors move with it.</p>
+    <p className="mt-2">Add keywords, then each one is checked automatically on a 15- or 30-day cadence. Select a row to see its trend against the competitors ranking for it.</p>
   </>
 )
 
@@ -38,6 +39,24 @@ function compactNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return `${n}`
+}
+
+type TrackStatus = { tracking_status: string; tracking_enabled: boolean }
+
+/** Small coloured dot + label for a keyword's automated-tracking state. */
+function StatusDot({ k }: { k: TrackStatus }) {
+  const map: Record<string, { c: string; t: string }> = {
+    processing: { c: "bg-amber-500", t: "Checking…" },
+    error: { c: "bg-destructive", t: "Needs attention" },
+    idle: { c: "bg-emerald-500", t: "Tracking" },
+  }
+  const s = !k.tracking_enabled ? { c: "bg-muted-foreground", t: "Paused" } : map[k.tracking_status] ?? map.idle
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className={cn("inline-block size-2 rounded-full", s.c, k.tracking_status === "processing" && "animate-pulse")} />
+      {s.t}
+    </span>
+  )
 }
 
 /** Summary tiles above the tracker: how many keywords, how many ranking well. */
@@ -56,12 +75,23 @@ function RankSummary({ keywords }: { keywords: { latest_position: number | null;
   )
 }
 
+/** One compact labelled figure inside the trend card header. */
+function MiniStat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border px-3 py-1.5">
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold tabular-nums">{children}</p>
+    </div>
+  )
+}
+
 export default function RankingsPage() {
   // The workspace + website picked in the top bar.
   const activeWorkspace = useActiveWorkspace()
   const activeDomain = useActiveDomain()
   const wid = activeWorkspace?.id ?? null
   const siteId = activeDomain?.id ?? null
+  const isSandbox = Boolean(activeWorkspace?.is_sandbox)
 
   // Data (TanStack Query): tracked keywords + the selected keyword's history.
   const keywordsQuery = useTrackedKeywords(wid, siteId)
@@ -71,22 +101,20 @@ export default function RankingsPage() {
   // The picked keyword; falls back to the first one (derived, no effect needed).
   const [chosenId, setSelectedId] = React.useState<string | null>(null)
   const selectedId = chosenId && keywords.some((k) => k.id === chosenId) ? chosenId : keywords[0]?.id ?? null
-  const entriesQuery = useRankEntries(wid, siteId, selectedId)
-  const entries = React.useMemo(() => entriesQuery.data ?? [], [entriesQuery.data])
-  const entriesLoading = Boolean(selectedId) && entriesQuery.isPending
   const selected = keywords.find((k) => k.id === selectedId) ?? null
 
   const [newTerm, setNewTerm] = React.useState("")
   const [addError, setAddError] = React.useState<string | null>(null)
-  // Chart window: last 4 / 12 weeks or all history.
-  const [range, setRange] = React.useState<"4w" | "12w" | "all">("all")
   const [updating, setUpdating] = React.useState(false)
+  const [confirmTrack, setConfirmTrack] = React.useState(false)
 
   const addMutation = useAddTrackedKeyword(wid, siteId)
   const removeMutation = useRemoveTrackedKeyword(wid, siteId)
   const gscMutation = useSyncGscPositions(wid, siteId)
   const serpMutation = useSyncSerpPositions(wid, siteId)
   const importMutation = useImportGscKeywords(wid, siteId)
+  const trackNowMutation = useTrackNow(wid, siteId)
+  const freqMutation = useUpdateTracking(wid, siteId)
   const adding = addMutation.isPending
   const importing = importMutation.isPending
 
@@ -134,8 +162,8 @@ export default function RankingsPage() {
       if (total === 0) {
         toast.info("No tracked keywords yet — add some, then update.")
       } else if (hit === 0) {
-        toast.info("No positions found yet.", {
-          description: "Pull rankings on Competitive Strategy, or connect your search data, then update again.",
+        toast.info("No stored positions yet.", {
+          description: "Use “Track now” on a keyword to fetch its live rankings, or connect Search Console.",
         })
       } else {
         toast.success(`Updated ${hit} of ${total} position${total === 1 ? "" : "s"} from your search data.`)
@@ -145,13 +173,41 @@ export default function RankingsPage() {
     }
   }
 
+  function runTrackNow() {
+    if (!selectedId) return
+    trackNowMutation.mutate(selectedId, {
+      onSuccess: (r) => {
+        if (r.skipped) { toast.info("A check is already running for this keyword."); return }
+        const pos = r.our_position == null ? "Not ranking in the top 100" : `You're at #${r.our_position}`
+        toast.success("Rankings updated.", { description: `${pos} · ${r.competitors} competitor${r.competitors === 1 ? "" : "s"} found.` })
+      },
+      onError: (err) => toast.error(errorMessage(err, "Could not fetch rankings right now.")),
+    })
+  }
+
+  function onTrackNowClick() {
+    if (!selectedId) return
+    if (isSandbox) runTrackNow()
+    else setConfirmTrack(true)
+  }
+
+  function setFrequency(days: number) {
+    if (!selectedId) return
+    freqMutation.mutate({ keywordId: selectedId, tracking_frequency_days: days },
+      { onError: (err) => toast.error(errorMessage(err, "Could not change the schedule.")) })
+  }
+
   function addKeyword(event: React.FormEvent) {
     event.preventDefault()
     setAddError(null)
     const term = newTerm.trim()
     if (!term || !wid || !siteId) { setAddError("Enter a keyword."); return }
     addMutation.mutate(term, {
-      onSuccess: (kw) => { setSelectedId(kw.id); setNewTerm("") },
+      onSuccess: (kw) => {
+        setSelectedId(kw.id); setNewTerm("")
+        if (isSandbox) toast.success(`Now tracking “${kw.term}”.`, { description: "Fetching its first rankings…" })
+        else toast.success(`Now tracking “${kw.term}”.`, { description: "Use “Track now” to fetch its first rankings." })
+      },
       onError: (err) => setAddError(err instanceof ApiError && err.status === 409
         ? "That keyword is already tracked." : errorMessage(err, "Could not add the keyword.")),
     })
@@ -165,18 +221,6 @@ export default function RankingsPage() {
     })
   }
 
-  const rangeWeeks = range === "4w" ? 4 : range === "12w" ? 12 : null
-  // Window relative to the latest entry (not the wall clock), so it stays pure.
-  const points: RankPoint[] = React.useMemo(() => {
-    let visible = entries
-    if (rangeWeeks != null && entries.length > 0) {
-      const latest = entries.reduce((max, e) => Math.max(max, new Date(e.recorded_at).getTime()), 0)
-      const cutoff = latest - rangeWeeks * 7 * 24 * 60 * 60 * 1000
-      visible = entries.filter((e) => new Date(e.recorded_at).getTime() >= cutoff)
-    }
-    return visible.map((e) => ({ label: fmtDate(e.recorded_at), position: e.position }))
-  }, [entries, rangeWeeks])
-
   if (!activeDomain) {
     return (
       <div className="space-y-6">
@@ -187,14 +231,17 @@ export default function RankingsPage() {
     )
   }
 
+  const nextCheck = selected?.next_fetch_at ?? null
+  const lastTracked = selected?.last_fetched_at ?? null
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader title={<> Rank Tracking </>} description={<> Your keywords and their Google position over time for {activeDomain.domain}. </>}
+        <PageHeader title={<> Rank Tracking </>} description={<> Your keywords and their Google position over time for {activeDomain.domain}, next to the competitors ranking for them. </>}
           help={rankTrackingHelp} />
-        <Button onClick={updatePositions} disabled={updating || !siteId} className="shrink-0">
+        <Button onClick={updatePositions} variant="outline" disabled={updating || !siteId} className="shrink-0">
           {updating ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-          Update positions
+          Update from search data
         </Button>
       </div>
 
@@ -242,12 +289,12 @@ export default function RankingsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[620px] text-sm">
+              <table className="w-full min-w-[680px] text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="px-3 py-2 font-medium">Keyword</th>
+                    <th className="w-28 px-3 py-2 font-medium">Status</th>
                     <th className="w-20 px-3 py-2 text-right font-medium">Volume</th>
-                    <th className="w-14 px-3 py-2 text-right font-medium">KD</th>
                     <th className="w-24 px-3 py-2 text-right font-medium">Position</th>
                     <th className="w-20 px-3 py-2 text-right font-medium">Change</th>
                     <th className="w-14 px-3 py-2 text-right font-medium">Best</th>
@@ -262,8 +309,8 @@ export default function RankingsPage() {
                         <p className="font-medium">{k.term}</p>
                         {k.intent && k.intent !== "unknown" ? <p className="text-xs capitalize text-muted-foreground">{k.intent}</p> : null}
                       </td>
+                      <td className="px-3 py-2.5"><StatusDot k={k} /></td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{k.search_volume == null ? "—" : compactNum(k.search_volume)}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{k.difficulty == null ? "—" : Math.round(k.difficulty)}</td>
                       <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
                         {k.latest_position == null ? <span className="font-normal text-muted-foreground">—</span> : `#${k.latest_position}`}
                       </td>
@@ -287,24 +334,44 @@ export default function RankingsPage() {
       {/* Trend for the selected keyword */}
       {keywords.length > 0 ? (
         <Card>
-          <CardHeader className="flex-row items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              <CardTitle className="text-base">{selected ? `“${selected.term}”` : "Position trend"}</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {selected
-                  ? `Latest #${selected.latest_position ?? "—"} · Best #${selected.best_position ?? "—"} · ${selected.entry_count} entr${selected.entry_count === 1 ? "y" : "ies"}`
-                  : "Select a keyword above to see its trend."}
-              </p>
+          <CardHeader className="flex-col items-stretch gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <CardTitle className="text-base">{selected ? `“${selected.term}”` : "Position trend"}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {selected ? "Your rank vs. the competitors ranking for this keyword." : "Select a keyword above to see its trend."}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Tracking cadence */}
+                {selected ? (
+                  <div className="inline-flex shrink-0 rounded-lg border border-border p-0.5" title="How often this keyword is checked">
+                    {[15, 30].map((d) => (
+                      <button key={d} type="button" onClick={() => setFrequency(d)}
+                        disabled={freqMutation.isPending}
+                        className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                          selected.tracking_frequency_days === d ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>
+                        {d}d
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <Button size="sm" onClick={onTrackNowClick} disabled={!selectedId || trackNowMutation.isPending}>
+                  {trackNowMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                  Track now
+                </Button>
+              </div>
             </div>
-            {selected && entries.length > 1 ? (
-              <div className="inline-flex shrink-0 rounded-lg border border-border p-0.5">
-                {(["4w", "12w", "all"] as const).map((r) => (
-                  <button key={r} type="button" onClick={() => setRange(r)}
-                    className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                      range === r ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>
-                    {r === "all" ? "All" : r}
-                  </button>
-                ))}
+
+            {/* Per-keyword figures */}
+            {selected ? (
+              <div className="flex flex-wrap gap-2">
+                <MiniStat label="Current">{selected.latest_position == null ? "—" : `#${selected.latest_position}`}</MiniStat>
+                <MiniStat label="Previous">{selected.previous_position == null ? "—" : `#${selected.previous_position}`}</MiniStat>
+                <MiniStat label="Change"><PositionDelta latest={selected.latest_position} previous={selected.previous_position} /></MiniStat>
+                <MiniStat label="Best">{selected.best_position == null ? "—" : `#${selected.best_position}`}</MiniStat>
+                <MiniStat label="Last tracked">{lastTracked ? fmtDate(lastTracked) : "—"}</MiniStat>
+                <MiniStat label="Next check">{nextCheck ? fmtDate(nextCheck) : "—"}</MiniStat>
               </div>
             ) : null}
           </CardHeader>
@@ -314,13 +381,37 @@ export default function RankingsPage() {
                 <LineChart className="size-6 text-muted-foreground/50" />
                 Select a keyword to see its position trend.
               </div>
-            ) : entriesLoading ? (
-              <Skeleton className="h-56 w-full" />
             ) : (
-              <RankTrendChart data={points} />
+              // Filterable chart: this keyword's SERP competitors (top 10) over
+              // time, with a Filters popover (date range + competitors) and
+              // Weekly / Monthly frequency.
+              <CompetitorRankTimeline
+                workspaceId={wid}
+                domainId={siteId}
+                variant="full"
+                keywordId={selectedId}
+                top={10}
+                bare
+              />
             )}
           </CardContent>
         </Card>
+      ) : null}
+
+      {selected ? (
+        <ConfirmDialog
+          open={confirmTrack}
+          onOpenChange={setConfirmTrack}
+          tone="default"
+          icon={<Calendar className="size-5" />}
+          title={`Check “${selected.term}” now?`}
+          description="This fetches fresh Google rankings for this keyword right now (a small paid search lookup) and records your position plus the competitors ranking for it."
+          confirmLabel="Fetch rankings"
+          onConfirm={() => trackNowMutation.mutateAsync(selectedId!).then((r) => {
+            const pos = r.our_position == null ? "Not ranking in the top 100" : `You're at #${r.our_position}`
+            toast.success("Rankings updated.", { description: `${pos} · ${r.competitors} competitor${r.competitors === 1 ? "" : "s"} found.` })
+          })}
+        />
       ) : null}
     </div>
   )
