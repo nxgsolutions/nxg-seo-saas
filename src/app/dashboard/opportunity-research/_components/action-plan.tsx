@@ -111,7 +111,7 @@ function Actions({ item, tracked, onTrack, busy, open, onDetails }: {
       {tracked ? (
         <Link href="/dashboard/rankings"
           className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground"
-          title="View in Rank Tracking">
+          title="View in Keyword Rankings">
           <Check className="size-3.5" /> Tracked
         </Link>
       ) : (
@@ -158,7 +158,7 @@ export function ActionPlan({ wid, did }: { wid: string; did: string }) {
     trackMutation.mutate(keyword, {
       onSuccess: (r) => {
         setTrackedNow((s) => new Set(s).add(keyword.toLowerCase()))
-        toast.success(r.created ? `“${keyword}” added to Rank Tracking` : `“${keyword}” is already tracked`, {
+        toast.success(r.created ? `“${keyword}” added to Keyword Rankings` : `“${keyword}” is already tracked`, {
           action: { label: "View", onClick: () => { window.location.href = "/dashboard/rankings" } },
         })
       },

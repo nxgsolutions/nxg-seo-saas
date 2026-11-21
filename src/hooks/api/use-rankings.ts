@@ -68,11 +68,37 @@ export const useImportGscKeywords = (wid: string | null, did: string | null) =>
 export const useSyncSerpPositions = (wid: string | null, did: string | null) =>
   useRankingsMutation(wid, did, () => rankingsApi.syncSerp(wid!, did!))
 
+/** Page 1/2/3 ranked-keyword counts over time (Keyword Reporting bar chart). */
+export function useKeywordReporting(
+  wid: string | null,
+  did: string | null,
+  params?: { freq?: "daily" | "weekly" | "monthly"; start?: string; end?: string; device?: string; location_code?: number }
+) {
+  return useQuery({
+    queryKey: [
+      ...queryKeys.rankings(wid ?? "", did ?? ""), "reporting",
+      params?.freq ?? "monthly", params?.start ?? "", params?.end ?? "",
+      params?.device ?? "", params?.location_code ?? "",
+    ],
+    queryFn: () => rankingsApi.keywordReporting(wid!, did!, params),
+    enabled: Boolean(wid && did),
+  })
+}
+
+/** Distinct device + location values present in stored SERPs (reporting filters). */
+export function useReportingFacets(wid: string | null, did: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.rankings(wid ?? "", did ?? ""), "reporting-facets"],
+    queryFn: () => rankingsApi.reportingFacets(wid!, did!),
+    enabled: Boolean(wid && did),
+  })
+}
+
 /** Aggregated competitor rank over time across tracked keywords (both pages). */
 export function useRankTimeline(
   wid: string | null,
   did: string | null,
-  params?: { freq?: "weekly" | "monthly"; start?: string; end?: string; keywords?: string[]; competitors?: string[]; top?: number }
+  params?: { freq?: "daily" | "weekly" | "monthly"; start?: string; end?: string; keywords?: string[]; competitors?: string[]; top?: number }
 ) {
   return useQuery({
     queryKey: [
@@ -89,7 +115,7 @@ export function useRankTimeline(
 export const useTrackNow = (wid: string | null, did: string | null) =>
   useRankingsMutation(wid, did, (keywordId: string) => rankingsApi.trackNow(wid!, did!, keywordId))
 
-/** Change a keyword's tracking cadence (15|30) / on-off. */
+/** Change a keyword's tracking cadence (7|14|30) / pause-resume. */
 export const useUpdateTracking = (wid: string | null, did: string | null) =>
   useRankingsMutation(wid, did, (v: { keywordId: string; tracking_frequency_days?: number; tracking_enabled?: boolean }) =>
     rankingsApi.updateTracking(wid!, did!, v.keywordId, {

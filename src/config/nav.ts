@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BarChartBig,
   Bookmark,
   Bot,
   Code2,
@@ -156,7 +157,8 @@ export const navSections: NavSection[] = [
         href: "/dashboard/search-performance",
         icon: LineChart,
       },
-      { label: "Rank Tracking", href: "/dashboard/rankings", icon: BarChart3 },
+      { label: "Keyword Rankings", href: "/dashboard/rankings", icon: BarChart3 },
+      { label: "Keyword Reporting", href: "/dashboard/keyword-reporting", icon: BarChartBig },
       { label: "AI Visibility", href: "/dashboard/ai-search", icon: Sparkles },
       { label: "Reports", href: "/dashboard/reports", icon: FileBarChart },
     ],

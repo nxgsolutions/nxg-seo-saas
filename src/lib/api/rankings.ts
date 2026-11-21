@@ -60,10 +60,31 @@ export interface RankHistory {
   meta: RankHistoryMeta
 }
 
+export interface KeywordReportingPeriod {
+  date: string
+  page1: number
+  page2: number
+  page3: number
+  page4plus: number
+  total: number
+  not_ranked: number
+}
+
+export interface KeywordReporting {
+  freq: "daily" | "weekly" | "monthly"
+  dates: string[]
+  periods: KeywordReportingPeriod[]
+}
+
+export interface ReportingFacets {
+  devices: string[]
+  locations: { code: number; name: string }[]
+}
+
 export interface RankTimeline {
   label: string
   you_host: string
-  freq: "weekly" | "monthly"
+  freq: "daily" | "weekly" | "monthly"
   dates: string[]
   you: RankSeries
   competitors: RankSeries[]
@@ -157,11 +178,35 @@ export const rankingsApi = {
     )
   },
 
+  // Page 1/2/3 ranked-keyword counts over time (from stored SERP snapshots).
+  keywordReporting: (
+    wid: string,
+    siteId: string,
+    params?: { freq?: "daily" | "weekly" | "monthly"; start?: string; end?: string; device?: string; location_code?: number }
+  ) => {
+    const q = new URLSearchParams()
+    if (params?.freq) q.set("freq", params.freq)
+    if (params?.start) q.set("start", params.start)
+    if (params?.end) q.set("end", params.end)
+    if (params?.device) q.set("device", params.device)
+    if (params?.location_code != null) q.set("location_code", String(params.location_code))
+    const qs = q.toString()
+    return apiClient.get<KeywordReporting>(
+      `${base(wid, siteId)}/tracked-keywords/keyword-reporting${qs ? `?${qs}` : ""}`
+    )
+  },
+
+  // Distinct device + location values present in stored SERPs (drives reporting filters).
+  reportingFacets: (wid: string, siteId: string) =>
+    apiClient.get<ReportingFacets>(
+      `${base(wid, siteId)}/tracked-keywords/reporting-facets`
+    ),
+
   // Aggregated competitor rank over time across tracked keywords (both pages).
   rankTimeline: (
     wid: string,
     siteId: string,
-    params?: { freq?: "weekly" | "monthly"; start?: string; end?: string; keywords?: string[]; competitors?: string[]; top?: number }
+    params?: { freq?: "daily" | "weekly" | "monthly"; start?: string; end?: string; keywords?: string[]; competitors?: string[]; top?: number }
   ) => {
     const q = new URLSearchParams()
     if (params?.freq) q.set("freq", params.freq)

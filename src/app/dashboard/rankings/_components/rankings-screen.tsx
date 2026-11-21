@@ -8,53 +8,77 @@ import { NoDomain } from "@/components/dashboard/current-domain"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { FormattedDate } from "@/components/ui/formatted-date"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  useAddTrackedKeyword, useImportGscKeywords, useRemoveTrackedKeyword,
-  useSyncGscPositions, useSyncSerpPositions, useTrackedKeywords, useTrackNow, useUpdateTracking,
+  useAddTrackedKeyword, useImportGscKeywords, useRemoveTrackedKeyword, useUpdateTracking,
+  useSyncGscPositions, useSyncSerpPositions, useTrackedKeywords, useTrackNow,
 } from "@/hooks/api/use-rankings"
 import { ApiError, errorMessage } from "@/lib/api/client"
 import { cn } from "@/lib/utils"
 import {
-  Award, Calendar, Download, KeyRound, LineChart, ListChecks, Loader2, Plus, RefreshCw,
+  Award, Calendar, Download, KeyRound, ListChecks, Loader2, MoreHorizontal, Pause, Play, Plus, RefreshCw,
   Search, Target, Trash2, TrendingUp,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import * as React from "react"
 import { toast } from "sonner"
-import { fmtDate } from "../_lib/rankings-helpers"
 import { PositionDelta } from "./position-delta"
 
 /** Brief "what this page does" shown in the title help popover. */
 const rankTrackingHelp = (
   <>
-    <p><span className="font-medium text-foreground">Rank Tracking</span> follows a keyword&apos;s Google position over time for this website — and how your competitors move with it.</p>
-    <p className="mt-2">Add keywords, then each one is checked automatically on a 15- or 30-day cadence. Select a row to see its trend against the competitors ranking for it.</p>
+    <p><span className="font-medium text-foreground">Keyword Rankings</span> follows a keyword&apos;s Google position over time for this website — and how your competitors move with it.</p>
+    <p className="mt-2">Add keywords, then each is checked automatically on the cadence you pick per row (every 1 week, 2 weeks or 1 month). Pause or resume any keyword, and select a row to see its trend against the competitors ranking for it.</p>
   </>
 )
 
-/** Compact volume (1.2K, 34K, 1.1M). */
-function compactNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return `${n}`
-}
-
 type TrackStatus = { tracking_status: string; tracking_enabled: boolean }
 
-/** Small coloured dot + label for a keyword's automated-tracking state. */
-function StatusDot({ k }: { k: TrackStatus }) {
-  const map: Record<string, { c: string; t: string }> = {
-    processing: { c: "bg-amber-500", t: "Checking…" },
-    error: { c: "bg-destructive", t: "Needs attention" },
-    idle: { c: "bg-emerald-500", t: "Tracking" },
-  }
-  const s = !k.tracking_enabled ? { c: "bg-muted-foreground", t: "Paused" } : map[k.tracking_status] ?? map.idle
+/** The per-keyword tracking frequencies offered in the table (days). */
+const FREQ_OPTIONS = [
+  { days: 7, label: "Every 1 week" },
+  { days: 14, label: "Every 2 weeks" },
+  { days: 30, label: "Every 1 month" },
+] as const
+
+function freqLabel(days: number): string {
+  const opt = FREQ_OPTIONS.find((o) => o.days === days)
+  if (opt) return opt.label
+  if (days === 15) return "~2 weeks"  // legacy cadence, shown until the user re-picks
+  return `Every ${days} days`
+}
+
+/**
+ * Live tracking indicator. Active keywords show a gently pulsing green dot;
+ * while a fetch is actually running (status "processing") the dot gets a
+ * blinking "ping" halo. Paused is a static grey dot, errors a static red one.
+ */
+function StatusCell({ k }: { k: TrackStatus }) {
+  const paused = !k.tracking_enabled
+  const processing = !paused && k.tracking_status === "processing"
+  const error = !paused && k.tracking_status === "error"
+  const dot = paused ? "bg-muted-foreground" : error ? "bg-destructive" : "bg-emerald-500"
+  const label = paused ? "Paused" : error ? "Needs attention" : processing ? "Checking…" : "Active"
+  const tone = paused ? "text-muted-foreground" : error ? "text-destructive" : "text-foreground/80"
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span className={cn("inline-block size-2 rounded-full", s.c, k.tracking_status === "processing" && "animate-pulse")} />
-      {s.t}
+    <span className={cn("inline-flex items-center gap-2 text-xs font-medium", tone)}>
+      <span className="relative inline-flex size-2 items-center justify-center">
+        {processing ? (
+          <span className="absolute inline-flex size-full rounded-full bg-emerald-500 opacity-60 motion-safe:animate-ping" />
+        ) : null}
+        <span className={cn(
+          "relative inline-flex size-2 rounded-full",
+          dot,
+          !paused && !error && "motion-safe:animate-pulse",
+        )} />
+      </span>
+      {label}
     </span>
   )
 }
@@ -75,15 +99,8 @@ function RankSummary({ keywords }: { keywords: { latest_position: number | null;
   )
 }
 
-/** One compact labelled figure inside the trend card header. */
-function MiniStat({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border px-3 py-1.5">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold tabular-nums">{children}</p>
-    </div>
-  )
-}
+/** Sentinel for the "All keywords (average)" view in the keyword selector. */
+const ALL_KW = "__all_keywords__"
 
 export default function RankingsPage() {
   // The workspace + website picked in the top bar.
@@ -98,10 +115,12 @@ export default function RankingsPage() {
   const keywords = keywordsQuery.data ?? []
   const kwLoading = keywordsQuery.isPending && Boolean(siteId)
 
-  // The picked keyword; falls back to the first one (derived, no effect needed).
+  // The picked keyword (falls back to the first one), or the "All keywords"
+  // average view. chosenId = a keyword id, ALL_KW, or null (initial → first).
   const [chosenId, setSelectedId] = React.useState<string | null>(null)
-  const selectedId = chosenId && keywords.some((k) => k.id === chosenId) ? chosenId : keywords[0]?.id ?? null
-  const selected = keywords.find((k) => k.id === selectedId) ?? null
+  const isAll = chosenId === ALL_KW
+  const selectedId = isAll ? null : (chosenId && keywords.some((k) => k.id === chosenId) ? chosenId : keywords[0]?.id ?? null)
+  const selected = selectedId ? keywords.find((k) => k.id === selectedId) ?? null : null
 
   const [newTerm, setNewTerm] = React.useState("")
   const [addError, setAddError] = React.useState<string | null>(null)
@@ -114,9 +133,37 @@ export default function RankingsPage() {
   const serpMutation = useSyncSerpPositions(wid, siteId)
   const importMutation = useImportGscKeywords(wid, siteId)
   const trackNowMutation = useTrackNow(wid, siteId)
-  const freqMutation = useUpdateTracking(wid, siteId)
+  const updateMutation = useUpdateTracking(wid, siteId)
   const adding = addMutation.isPending
   const importing = importMutation.isPending
+  // Which row is mid-update (frequency change or pause/resume) → row-level spinner.
+  const busyId = updateMutation.isPending ? updateMutation.variables?.keywordId ?? null : null
+
+  // Keyword queued for removal (confirmed in the dialog before it's deleted).
+  const [removeTarget, setRemoveTarget] = React.useState<{ id: string; term: string } | null>(null)
+
+  // Change a keyword's refresh cadence (persisted; the scheduler re-anchors next run).
+  function changeFreq(kwId: string, days: number) {
+    updateMutation.mutate(
+      { keywordId: kwId, tracking_frequency_days: days },
+      {
+        onSuccess: () => toast.success(`Checking ${freqLabel(days).toLowerCase()}.`),
+        onError: (err) => toast.error(errorMessage(err, "Could not change the schedule.")),
+      }
+    )
+  }
+
+  // Pause or resume automated tracking for one keyword (history is kept either way).
+  function togglePause(k: { id: string; term: string; tracking_enabled: boolean }) {
+    const resume = !k.tracking_enabled
+    updateMutation.mutate(
+      { keywordId: k.id, tracking_enabled: resume },
+      {
+        onSuccess: () => toast.success(resume ? `Resumed tracking “${k.term}”.` : `Paused tracking “${k.term}”.`),
+        onError: (err) => toast.error(errorMessage(err, "Could not update tracking.")),
+      }
+    )
+  }
 
   // Pull the domain's top Search Console queries in as tracked keywords, with
   // today's position already filled — the one-click path for an empty page.
@@ -176,25 +223,23 @@ export default function RankingsPage() {
   function runTrackNow() {
     if (!selectedId) return
     trackNowMutation.mutate(selectedId, {
-      onSuccess: (r) => {
-        if (r.skipped) { toast.info("A check is already running for this keyword."); return }
-        const pos = r.our_position == null ? "Not ranking in the top 100" : `You're at #${r.our_position}`
-        toast.success("Rankings updated.", { description: `${pos} · ${r.competitors} competitor${r.competitors === 1 ? "" : "s"} found.` })
-      },
-      onError: (err) => toast.error(errorMessage(err, "Could not fetch rankings right now.")),
+      onSuccess: trackNowSuccess,
+      onError: (err) => toast.error(errorMessage(err, "Could not update rankings right now. Please try again.")),
     })
+  }
+
+  // Plain-language result toast for an on-demand update.
+  function trackNowSuccess(r: { skipped: string | null; our_position: number | null; competitors: number }) {
+    if (r.skipped) { toast.info("This keyword is already being updated."); return }
+    const pos = r.our_position == null ? "Your site isn't in the top results yet" : `You're at position #${r.our_position}`
+    const comp = `${r.competitors} competitor${r.competitors === 1 ? "" : "s"} found`
+    toast.success("Rankings updated", { description: `${pos}. ${comp}.` })
   }
 
   function onTrackNowClick() {
     if (!selectedId) return
     if (isSandbox) runTrackNow()
     else setConfirmTrack(true)
-  }
-
-  function setFrequency(days: number) {
-    if (!selectedId) return
-    freqMutation.mutate({ keywordId: selectedId, tracking_frequency_days: days },
-      { onError: (err) => toast.error(errorMessage(err, "Could not change the schedule.")) })
   }
 
   function addKeyword(event: React.FormEvent) {
@@ -213,31 +258,21 @@ export default function RankingsPage() {
     })
   }
 
-  function removeKeyword(kwId: string) {
-    if (!wid || !siteId) return
-    removeMutation.mutate(kwId, {
-      onSuccess: () => { if (selectedId === kwId) setSelectedId(null) },
-      onError: (err) => toast.error(errorMessage(err, "Could not remove the keyword.")),
-    })
-  }
-
   if (!activeDomain) {
     return (
       <div className="space-y-6">
-        <PageHeader title={<> Rank Tracking </>} description={<> Keywords you track and their Google positions over time. </>}
+        <PageHeader title={<> Keyword Rankings </>} description={<> Keywords you track and their Google positions over time. </>}
           help={rankTrackingHelp} />
-        <NoDomain what="rank tracking" />
+        <NoDomain what="keyword rankings" />
       </div>
     )
   }
 
-  const nextCheck = selected?.next_fetch_at ?? null
-  const lastTracked = selected?.last_fetched_at ?? null
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader title={<> Rank Tracking </>} description={<> Your keywords and their Google position over time for {activeDomain.domain}, next to the competitors ranking for them. </>}
+        <PageHeader title={<> Keyword Rankings </>} description={<> Your keywords and their Google position over time for {activeDomain.domain}, next to the competitors ranking for them. </>}
           help={rankTrackingHelp} />
         <Button onClick={updatePositions} variant="outline" disabled={updating || !siteId} className="shrink-0">
           {updating ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
@@ -289,41 +324,90 @@ export default function RankingsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[680px] text-sm">
+              <table className="w-full min-w-[920px] text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="px-3 py-2 font-medium">Keyword</th>
-                    <th className="w-28 px-3 py-2 font-medium">Status</th>
-                    <th className="w-20 px-3 py-2 text-right font-medium">Volume</th>
-                    <th className="w-24 px-3 py-2 text-right font-medium">Position</th>
+                    <th className="w-32 px-3 py-2 font-medium">Status</th>
+                    <th className="w-20 px-3 py-2 text-right font-medium">Position</th>
+                    <th className="w-20 px-3 py-2 text-right font-medium">Previous</th>
                     <th className="w-20 px-3 py-2 text-right font-medium">Change</th>
-                    <th className="w-14 px-3 py-2 text-right font-medium">Best</th>
-                    <th className="w-10 px-3 py-2"><span className="sr-only">Remove</span></th>
+                    <th className="w-40 px-3 py-2 font-medium">Frequency</th>
+                    <th className="w-28 px-3 py-2 font-medium">Last tracked</th>
+                    <th className="w-28 px-3 py-2 font-medium">Next scheduled</th>
+                    <th className="w-10 px-3 py-2"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {keywords.map((k) => (
+                  {keywords.map((k) => {
+                    const busy = busyId === k.id
+                    const freqValue = String(k.tracking_frequency_days)
+                    const overdue = k.next_fetch_at ? new Date(k.next_fetch_at).getTime() <= Date.now() : false
+                    return (
                     <tr key={k.id} onClick={() => setSelectedId(k.id)}
                       className={cn("cursor-pointer transition-colors hover:bg-muted/40", k.id === selectedId && "bg-primary/5")}>
                       <td className="px-3 py-2.5">
                         <p className="font-medium">{k.term}</p>
                         {k.intent && k.intent !== "unknown" ? <p className="text-xs capitalize text-muted-foreground">{k.intent}</p> : null}
                       </td>
-                      <td className="px-3 py-2.5"><StatusDot k={k} /></td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{k.search_volume == null ? "—" : compactNum(k.search_volume)}</td>
+                      <td className="px-3 py-2.5"><StatusCell k={k} /></td>
                       <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
                         {k.latest_position == null ? <span className="font-normal text-muted-foreground">—</span> : `#${k.latest_position}`}
                       </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                        {k.previous_position == null ? "—" : `#${k.previous_position}`}
+                      </td>
                       <td className="px-3 py-2.5 text-right"><span className="inline-flex justify-end"><PositionDelta latest={k.latest_position} previous={k.previous_position} /></span></td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{k.best_position == null ? "—" : `#${k.best_position}`}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); removeKeyword(k.id) }}
-                          aria-label={`Remove ${k.term}`} className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="size-4" />
-                        </Button>
+                      <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <Select value={freqValue} onValueChange={(v) => { if (v) changeFreq(k.id, Number(v)) }} disabled={busy}>
+                          <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {FREQ_OPTIONS.map((o) => (
+                              <SelectItem key={o.days} value={String(o.days)}>{o.label}</SelectItem>
+                            ))}
+                            {k.tracking_frequency_days === 15 ? (
+                              <SelectItem value="15">~2 weeks (legacy)</SelectItem>
+                            ) : null}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {k.last_fetched_at ? <FormattedDate value={k.last_fetched_at} /> : <span className="text-xs text-muted-foreground">Not yet</span>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {!k.tracking_enabled ? (
+                          <span className="text-xs text-muted-foreground">Paused</span>
+                        ) : overdue ? (
+                          <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">Due now</span>
+                        ) : k.next_fetch_at ? (
+                          <FormattedDate value={k.next_fetch_at} />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger render={
+                            <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${k.term}`}
+                              className="text-muted-foreground" disabled={busy} />
+                          }>
+                            {busy ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => togglePause(k)}>
+                              {k.tracking_enabled ? <><Pause className="size-4" /> Pause tracking</> : <><Play className="size-4" /> Resume tracking</>}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setRemoveTarget({ id: k.id, term: k.term })}
+                              className="text-destructive data-[highlighted]:text-destructive [&_svg]:text-destructive">
+                              <Trash2 className="size-4" /> Remove keyword
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -337,63 +421,34 @@ export default function RankingsPage() {
           <CardHeader className="flex-col items-stretch gap-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
-                <CardTitle className="text-base">{selected ? `“${selected.term}”` : "Position trend"}</CardTitle>
+                <CardTitle className="text-base">{isAll ? "All keywords" : selected ? selected.term : "Position trend"}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {selected ? "Your rank vs. the competitors ranking for this keyword." : "Select a keyword above to see its trend."}
+                  {isAll
+                    ? "Average rank for you vs. your most common competitors across all tracked keywords."
+                    : "Your rank vs. the competitors ranking for this keyword."}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Tracking cadence */}
-                {selected ? (
-                  <div className="inline-flex shrink-0 rounded-lg border border-border p-0.5" title="How often this keyword is checked">
-                    {[15, 30].map((d) => (
-                      <button key={d} type="button" onClick={() => setFrequency(d)}
-                        disabled={freqMutation.isPending}
-                        className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                          selected.tracking_frequency_days === d ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>
-                        {d}d
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+              {selected ? (
                 <Button size="sm" onClick={onTrackNowClick} disabled={!selectedId || trackNowMutation.isPending}>
                   {trackNowMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
                   Track now
                 </Button>
-              </div>
+              ) : null}
             </div>
-
-            {/* Per-keyword figures */}
-            {selected ? (
-              <div className="flex flex-wrap gap-2">
-                <MiniStat label="Current">{selected.latest_position == null ? "—" : `#${selected.latest_position}`}</MiniStat>
-                <MiniStat label="Previous">{selected.previous_position == null ? "—" : `#${selected.previous_position}`}</MiniStat>
-                <MiniStat label="Change"><PositionDelta latest={selected.latest_position} previous={selected.previous_position} /></MiniStat>
-                <MiniStat label="Best">{selected.best_position == null ? "—" : `#${selected.best_position}`}</MiniStat>
-                <MiniStat label="Last tracked">{lastTracked ? fmtDate(lastTracked) : "—"}</MiniStat>
-                <MiniStat label="Next check">{nextCheck ? fmtDate(nextCheck) : "—"}</MiniStat>
-              </div>
-            ) : null}
           </CardHeader>
           <CardContent>
-            {!selected ? (
-              <div className="flex h-56 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-                <LineChart className="size-6 text-muted-foreground/50" />
-                Select a keyword to see its position trend.
-              </div>
-            ) : (
-              // Filterable chart: this keyword's SERP competitors (top 10) over
-              // time, with a Filters popover (date range + competitors) and
-              // Weekly / Monthly frequency.
-              <CompetitorRankTimeline
-                workspaceId={wid}
-                domainId={siteId}
-                variant="full"
-                keywordId={selectedId}
-                top={10}
-                bare
-              />
-            )}
+            {/* Filterable chart. The keyword combobox (in the filter bar) picks a
+                single keyword's SERP competitors or the All-keywords average. */}
+            <CompetitorRankTimeline
+              workspaceId={wid}
+              domainId={siteId}
+              variant="full"
+              keywordOptions={keywords.map((k) => ({ id: k.id, term: k.term }))}
+              selectedKeywordId={selectedId}
+              onKeywordChange={(id) => setSelectedId(id ?? ALL_KW)}
+              top={10}
+              bare
+            />
           </CardContent>
         </Card>
       ) : null}
@@ -405,14 +460,29 @@ export default function RankingsPage() {
           tone="default"
           icon={<Calendar className="size-5" />}
           title={`Check “${selected.term}” now?`}
-          description="This fetches fresh Google rankings for this keyword right now (a small paid search lookup) and records your position plus the competitors ranking for it."
-          confirmLabel="Fetch rankings"
-          onConfirm={() => trackNowMutation.mutateAsync(selectedId!).then((r) => {
-            const pos = r.our_position == null ? "Not ranking in the top 100" : `You're at #${r.our_position}`
-            toast.success("Rankings updated.", { description: `${pos} · ${r.competitors} competitor${r.competitors === 1 ? "" : "s"} found.` })
-          })}
+          description="This checks your current Google ranking for this keyword now and updates the graph. It uses one paid lookup."
+          confirmLabel="Update now"
+          onConfirm={() => trackNowMutation.mutateAsync(selectedId!).then(trackNowSuccess)}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={!!removeTarget}
+        onOpenChange={(o) => { if (!o) setRemoveTarget(null) }}
+        tone="destructive"
+        title={removeTarget ? `Remove “${removeTarget.term}”?` : "Remove keyword?"}
+        description="This stops tracking the keyword and removes it from this list. Its ranking history is kept and restored if you add it again."
+        confirmLabel="Remove"
+        onConfirm={() => {
+          const id = removeTarget?.id
+          if (!id) return
+          return removeMutation.mutateAsync(id).then(() => {
+            if (selectedId === id) setSelectedId(null)
+            setRemoveTarget(null)
+            toast.success("Keyword removed.")
+          })
+        }}
+      />
     </div>
   )
 }

@@ -10,6 +10,7 @@ import { KeywordRankChart } from "@/components/charts/lazy"
 import { RANK_LINE_COLORS } from "@/components/charts/chart-colors"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Combobox } from "@/components/ui/combobox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { SegmentedTabs } from "@/components/ui/segmented-tabs"
@@ -17,14 +18,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useRankTimeline } from "@/hooks/api/use-rankings"
 import { cn } from "@/lib/utils"
 import {
-  ArrowRight, Calendar as CalendarIcon, CalendarDays, CalendarRange, Check,
+  ArrowRight, Calendar as CalendarIcon, CalendarClock, CalendarDays, CalendarRange, Check,
   SlidersHorizontal, TrendingUp,
 } from "lucide-react"
 import Link from "next/link"
 import * as React from "react"
 
-type Freq = "weekly" | "monthly"
+type Freq = "daily" | "weekly" | "monthly"
 type Preset = "3m" | "6m" | "12m" | "custom"
+
+const ALL_KEYWORDS = "__all_keywords__"
 
 const MAX_RANGE_DAYS = 366 // 12 months is the maximum range
 
@@ -35,6 +38,7 @@ const PRESETS: { id: Exclude<Preset, "custom">; label: string }[] = [
 ]
 
 const FREQ_TABS = [
+  { value: "daily" as const, label: "Daily", icon: CalendarClock },
   { value: "weekly" as const, label: "Weekly", icon: CalendarDays },
   { value: "monthly" as const, label: "Monthly", icon: CalendarRange },
 ]
@@ -124,18 +128,21 @@ export function CompetitorRankTimeline({
   domainId,
   variant = "full",
   keywordOptions = [],
-  keywordId = null,
+  selectedKeywordId = null,
+  onKeywordChange,
   top,
   bare = false,
 }: {
   workspaceId: string | null
   domainId: string | null
   variant?: "full" | "simple"
-  /** Tracked keywords for the Keywords filter (full variant, multi-keyword). */
+  /** Tracked keywords for the keyword combobox (full variant). */
   keywordOptions?: { id: string; term: string }[]
-  /** Scope to a single keyword's SERP competitors (hides the Keywords filter). */
-  keywordId?: string | null
-  /** Max competitor lines to request (e.g. 10 for the per-keyword view). */
+  /** Selected keyword id, or null for "All keywords (average)". */
+  selectedKeywordId?: string | null
+  /** Called when the keyword combobox changes (id, or null for All). */
+  onKeywordChange?: (id: string | null) => void
+  /** Max competitor lines to request. */
   top?: number
   /** Render just the filter bar + chart (no Card wrapper) for embedding. */
   bare?: boolean
@@ -145,7 +152,6 @@ export function CompetitorRankTimeline({
   const [customFrom, setCustomFrom] = React.useState<Date | undefined>(() => monthsAgo(6))
   const [customTo, setCustomTo] = React.useState<Date | undefined>(() => new Date())
   const [compOff, setCompOff] = React.useState<Set<string>>(new Set())
-  const [kwOff, setKwOff] = React.useState<Set<string>>(new Set())
 
   const defaultPreset: Preset = variant === "simple" ? "12m" : "6m"
 
@@ -159,14 +165,8 @@ export function CompetitorRankTimeline({
     return { start: toISO(monthsAgo(n)), end: undefined, rangeLabel: `Last ${n} months` }
   }, [preset, customFrom, customTo])
 
-  // When scoped to one keyword, always request just that keyword's SERP
-  // competitors; otherwise honour the Keywords multi-select.
-  const selectedKwIds = keywordOptions.filter((k) => !kwOff.has(k.id)).map((k) => k.id)
-  const kwParam = keywordId
-    ? [keywordId]
-    : variant === "full" && kwOff.size > 0
-      ? selectedKwIds
-      : undefined
+  // One keyword → that keyword's SERP competitors; null → all keywords averaged.
+  const kwParam = selectedKeywordId ? [selectedKeywordId] : undefined
 
   // all_competitors is computed server-side independently of the competitor
   // filter, so one query drives both the stable option list and the plotted set.
@@ -185,23 +185,39 @@ export function CompetitorRankTimeline({
   const data = timeline.data ?? null
   const loading = timeline.isPending && Boolean(workspaceId && domainId)
 
+  // A trend needs at least two days of data; with one point (or none) we show a
+  // clear, plain-language message instead of a chart.
+  const dataDays = React.useMemo(() => {
+    if (!data) return 0
+    const days = new Set<string>()
+    for (const p of data.you.points) if (p.position != null) days.add(p.date)
+    for (const c of data.competitors) for (const p of c.points) if (p.position != null) days.add(p.date)
+    return days.size
+  }, [data])
+
   const activeFilters =
-    (preset !== defaultPreset ? 1 : 0) +
-    (compOff.size > 0 ? 1 : 0) + (kwOff.size > 0 ? 1 : 0)
+    (preset !== defaultPreset ? 1 : 0) + (compOff.size > 0 ? 1 : 0)
+
+  const notEnough = (
+    <div className="flex h-72 flex-col items-center justify-center gap-1 px-6 text-center">
+      <p className="text-sm font-medium">Not enough data yet to show a trend</p>
+      <p className="text-sm text-muted-foreground">
+        We need at least two updates for this keyword. Check back after it has been
+        updated again.
+      </p>
+    </div>
+  )
 
   const chart = loading ? (
     <Skeleton className="h-72 w-full rounded-lg" />
-  ) : !data || data.dates.length === 0 ? (
-    <div className="flex h-72 items-center justify-center text-center text-sm text-muted-foreground">
-      No competitor ranking history yet. Track some keywords (and let them check in
-      over a few cycles) to build this trend.
-    </div>
+  ) : dataDays < 2 ? (
+    notEnough
   ) : variant === "full" && visibleComps.length === 0 && allComps.length > 0 ? (
     <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
-      Select at least one competitor to plot.
+      Select at least one competitor to show.
     </div>
   ) : (
-    <KeywordRankChart data={data} />
+    <KeywordRankChart data={data!} />
   )
 
   if (variant === "simple") {
@@ -224,7 +240,10 @@ export function CompetitorRankTimeline({
   }
 
   const filterBar = (
-    <div className="flex w-full flex-wrap items-center gap-2">
+    <div className="w-full space-y-2">
+      <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+          <span className="block text-xs font-medium text-muted-foreground">Filters</span>
           <Popover>
             <PopoverTrigger render={
               <button type="button"
@@ -290,26 +309,37 @@ export function CompetitorRankTimeline({
                   onAll={() => setCompOff(new Set())}
                   onClear={() => setCompOff(new Set(allComps))} />
               )}
-
-              {/* Keywords (hidden when scoped to a single keyword) */}
-              {!keywordId && keywordOptions.length > 0 && (
-                <MultiSelect label="Keywords"
-                  options={keywordOptions.map((k) => ({ value: k.id, label: k.term }))}
-                  off={kwOff}
-                  onToggle={(v) => setKwOff((p) => { const n = new Set(p); n.has(v) ? n.delete(v) : n.add(v); return n })}
-                  onAll={() => setKwOff(new Set())}
-                  onClear={() => setKwOff(new Set(keywordOptions.map((k) => k.id)))} />
-              )}
             </PopoverContent>
           </Popover>
+          </div>
 
-          <span className="text-xs text-muted-foreground">
-            {rangeLabel}
-            {allComps.length > 0 ? ` · ${visibleComps.length}/${allComps.length} competitors` : ""}
-            {!keywordId && keywordOptions.length > 0 ? ` · ${selectedKwIds.length || keywordOptions.length}/${keywordOptions.length} keywords` : ""}
-          </span>
+          {/* Keyword selector: one keyword, or All keywords (average) */}
+          {keywordOptions.length > 0 && onKeywordChange && (
+            <div className="space-y-1">
+              <span className="block text-xs font-medium text-muted-foreground">Keyword</span>
+              <Combobox
+                className="w-56"
+                value={selectedKeywordId ?? ALL_KEYWORDS}
+                placeholder="All keywords (average)"
+                searchPlaceholder="Search keywords…"
+                options={[
+                  { value: ALL_KEYWORDS, label: "All keywords (average)" },
+                  ...keywordOptions.map((k) => ({ value: k.id, label: k.term })),
+                ]}
+                onSelect={(v) => onKeywordChange(v === ALL_KEYWORDS ? null : v)}
+              />
+            </div>
+          )}
 
-          <SegmentedTabs className="ml-auto" label="Frequency" value={freq} onChange={setFreq} items={FREQ_TABS} />
+          <div className="ml-auto space-y-1">
+            <span className="block text-right text-xs font-medium text-muted-foreground">Frequency</span>
+            <SegmentedTabs label="Frequency" value={freq} onChange={setFreq} items={FREQ_TABS} />
+          </div>
+      </div>
+      <p className="min-h-4 text-xs text-muted-foreground">
+        {rangeLabel}
+        {allComps.length > 0 ? ` · ${visibleComps.length}/${allComps.length} competitors` : ""}
+      </p>
     </div>
   )
 

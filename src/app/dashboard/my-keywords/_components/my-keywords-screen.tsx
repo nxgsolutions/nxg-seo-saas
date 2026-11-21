@@ -118,7 +118,7 @@ export default function MyKeywordsPage() {
         description="A shortlist you save for this website — with current volume, cost per click, difficulty and your Google rank."
         help={<>
           <p><span className="font-medium text-foreground">Save keyword</span> adds a keyword to this shortlist, so you can collect and compare ideas in one place — with its volume, CPC, difficulty, intent and current Google rank.</p>
-          <p className="mt-2">It does <span className="font-medium text-foreground">not</span> track position over time. To watch a keyword move on Google, use <span className="font-medium text-foreground">Track rank</span> (on the Rank Tracking page).</p>
+          <p className="mt-2">It does <span className="font-medium text-foreground">not</span> track position over time. To watch a keyword move on Google, use <span className="font-medium text-foreground">Track rank</span> (on the Keyword Rankings page).</p>
         </>} />
 
       {s.noWebsite ? (
@@ -149,7 +149,7 @@ export default function MyKeywordsPage() {
                   <SortHeader k="cpc" label="CPC" help={COLUMN_HELP.cpc} screen={s} />
                   <SortHeader k="difficulty" label="Difficulty" help={COLUMN_HELP.estDifficulty} screen={s} />
                   <th className="p-2 text-left"><HeaderWithHelp help={COLUMN_HELP.intent}>Intent</HeaderWithHelp></th>
-                  <SortHeader k="rank" label="Google rank" help="Your position in Google, from Rank Tracking. Click Track to start tracking it." screen={s} />
+                  <SortHeader k="rank" label="Google rank" help="Your position in Google, from Keyword Rankings. Click Track to start tracking it." screen={s} />
                   <SortHeader k="added" label="Saved" screen={s} />
                   <th className="w-12 p-2"><span className="sr-only">Remove</span></th>
                 </tr></thead>

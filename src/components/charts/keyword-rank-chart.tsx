@@ -134,7 +134,7 @@ export function KeywordRankChart({
               name={`${data.you_host} (you)`}
               stroke={YOU_COLOR}
               strokeWidth={2.75}
-              connectNulls={false}
+              connectNulls
               dot={{ r: 3, fill: YOU_COLOR, strokeWidth: 0 }}
               activeDot={{ r: 5, stroke: "var(--background)", strokeWidth: 2 }}
               isAnimationActive={false}
@@ -149,7 +149,7 @@ export function KeywordRankChart({
                   name={c.host}
                   stroke={color}
                   strokeWidth={1.75}
-                  connectNulls={false}
+                  connectNulls
                   dot={{ r: 2.5, strokeWidth: 0, fill: color }}
                   activeDot={{ r: 4.5, stroke: "var(--background)", strokeWidth: 2 }}
                   isAnimationActive={false}
@@ -160,8 +160,8 @@ export function KeywordRankChart({
         </ResponsiveContainer>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Google organic position over time · position 1 is at the top · a gap means
-        not ranking in the top {maxPos}.
+        Google organic position over time · position 1 is at the top · lines connect
+        across periods with no check.
       </p>
     </div>
   )
